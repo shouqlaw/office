@@ -20023,16 +20023,16 @@ function sdValidate(fields) {
       }
     }
 
-    // Validate end > start
+    // Validate end >= start
     if(val && f.startId) {
       const startHid = document.getElementById(f.startId);
       const startVal = startHid ? startHid.value : '';
-      if(startVal && val <= startVal) {
+      if(startVal && val < startVal) {
         if(txt){ txt.classList.add('sd-err'); txt.classList.remove('sd-ok'); }
         const startHidWrap = startHid.closest ? startHid.closest('.sd-wrap') : null;
         const startTxt = startHidWrap ? startHidWrap.querySelector('.sd-text') : null;
         if(startTxt){ startTxt.classList.add('sd-err'); startTxt.classList.remove('sd-ok'); }
-        toast('⚠️ تاريخ انتهاء ' + f.label + ' يجب أن يكون بعد تاريخ الإصدار', 'warning');
+        toast('⚠️ تاريخ انتهاء ' + f.label + ' يجب أن يكون في نفس يوم البداية أو بعده', 'warning');
         ok = false;
       }
     }
