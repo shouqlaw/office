@@ -7572,8 +7572,8 @@ function renderExcuseRequestsAdmin() {
         <div style="display:flex;flex-direction:column;gap:6px;align-items:center;flex-shrink:0;">
           <span class="badge ${stCls}">${stTxt}</span>
           ${r.status==='pending'?`
-            <button class="btn bg btn-sm" onclick="approveExcuseRequest('${r.id}')">✅ قبول</button>
-            <button class="btn bd btn-sm" onclick="rejectExcuseRequest('${r.id}')">❌ رفض</button>
+            <button class="btn bg btn-sm" onclick="approveExcuseRequest('${r.id}')" ${(CU.type!=='admin'&&CU.empId&&r.empId===CU.empId)?'disabled title="لا يمكنك الموافقة على طلبك الخاص" style="opacity:.4;cursor:not-allowed;"':''}>✅ قبول</button>
+            <button class="btn bd btn-sm" onclick="rejectExcuseRequest('${r.id}')" ${(CU.type!=='admin'&&CU.empId&&r.empId===CU.empId)?'disabled title="لا يمكنك رفض طلبك الخاص" style="opacity:.4;cursor:not-allowed;"':''}>❌ رفض</button>
           `:''}
           ${r.status==='approved'?`<button class="btn bw btn-sm" style="font-size:11px;" onclick="revokeExcuseRequest('${r.id}')">↩️ إلغاء</button>`:''}
         </div>
@@ -7589,8 +7589,17 @@ function renderExcuseRequestsAdmin() {
 }
 
 function approveExcuseRequest(rid) {
+  // ── تحقق من الصلاحية ──
+  if(CU.type!=='admin' && !hasPerm('ep_approveLeave')){
+    toast('⛔ ليس لديك صلاحية الموافقة على طلبات الإعفاء','error'); return;
+  }
   const r = (S.excuseRequests||[]).find(x=>x.id===rid);
   if(!r){ toast('⛔ طلب غير موجود','error'); return; }
+
+  // ── منع الموظف من قبول طلب إعفاء نفسه ──
+  if(CU.type!=='admin' && CU.empId && r.empId===CU.empId){
+    toast('⛔ لا يمكنك الموافقة على طلب إعفائك الخاص','error'); return;
+  }
   if(!S.absenceExcuses) S.absenceExcuses=[];
   if(!S.salaryOverrides) S.salaryOverrides=[];
   const now = new Date().toLocaleString('ar-SA');
@@ -7626,8 +7635,17 @@ function approveExcuseRequest(rid) {
 }
 
 function rejectExcuseRequest(rid) {
+  // ── تحقق من الصلاحية ──
+  if(CU.type!=='admin' && !hasPerm('ep_approveLeave')){
+    toast('⛔ ليس لديك صلاحية رفض طلبات الإعفاء','error'); return;
+  }
   const r = (S.excuseRequests||[]).find(x=>x.id===rid);
   if(!r) return;
+
+  // ── منع الموظف من رفض طلب إعفاء نفسه ──
+  if(CU.type!=='admin' && CU.empId && r.empId===CU.empId){
+    toast('⛔ لا يمكنك رفض طلب إعفائك الخاص','error'); return;
+  }
   const reason = prompt('📝 سبب الرفض (اختياري):') || '';
   const now = new Date().toLocaleString('ar-SA');
   r.status='rejected'; r.decidedBy=CU.fullName; r.decidedAt=now; r.rejectReason=reason;
@@ -14420,8 +14438,17 @@ function submitLeave() {
 }
 
 function approveLeave(lid) {
+  // ── تحقق من الصلاحية: المدير فقط أو من لديه صلاحية ep_approveLeave ──
+  if(CU.type!=='admin' && !hasPerm('ep_approveLeave')){
+    toast('⛔ ليس لديك صلاحية الموافقة على الإجازات','error'); return;
+  }
   const lr=S.leaveRequests.find(x=>x.id===lid);
   if(!lr)return;
+
+  // ── منع الموظف من قبول طلب إجازته الخاصة ──
+  if(CU.type!=='admin' && CU.empId && lr.empId===CU.empId){
+    toast('⛔ لا يمكنك الموافقة على طلب إجازتك الخاصة','error'); return;
+  }
 
   // ── Prevent approving if overlapping APPROVED leave already exists ──
   if(hasOverlappingApprovedLeave(lr.empId, lr.from, lr.to, lr.id)){
@@ -14453,8 +14480,17 @@ function approveLeave(lid) {
 }
 
 function rejectLeave(lid) {
+  // ── تحقق من الصلاحية ──
+  if(CU.type!=='admin' && !hasPerm('ep_approveLeave')){
+    toast('⛔ ليس لديك صلاحية رفض الإجازات','error'); return;
+  }
   const lr=S.leaveRequests.find(x=>x.id===lid);
   if(!lr)return;
+
+  // ── منع الموظف من رفض طلب إجازته الخاصة ──
+  if(CU.type!=='admin' && CU.empId && lr.empId===CU.empId){
+    toast('⛔ لا يمكنك رفض طلب إجازتك الخاصة','error'); return;
+  }
   lr.status='rejected';
   lr.rejectedBy=CU.fullName;
   lr.rejectedAt=new Date().toLocaleString('ar-SA');
@@ -14537,7 +14573,7 @@ function renderLeaveRequestsAdmin() {
         <div style="flex:1;">
           <div style="font-weight:700;font-size:13px;">${esc(lr.empName)} — <span style="color:var(--primary);">${esc(lr.type)}</span></div>
           <div style="font-size:12px;color:var(--text-muted);">${fmtDate(lr.from)} — ${fmtDate(lr.to)} <strong style="color:var(--text);">(${days} أيام)</strong></div>
-          ${lr.status==='pending'?`<div style="font-size:11px;color:var(--text-muted);">رصيد الموظف الحالي: <strong style="color:${balance<=days?'var(--danger)':'var(--success)'};">${balance} يوم</strong></div>`:''}
+          ${lr.status==='pending'?`<div style="font-size:11px;color:var(--text-muted);">رصيد الموظف الحالي: <strong style="color:${balance<=days?'var(--danger)':'var(--success)'};">${balance} يوم</strong></div>`:''}\n          ${lr.status==='pending'&&CU.type!=='admin'&&CU.empId&&lr.empId===CU.empId?`<div style="font-size:11px;color:var(--danger);background:#fff0f0;padding:3px 8px;border-radius:6px;margin-top:3px;">⚠️ هذا طلبك — لا يمكنك الموافقة عليه بنفسك</div>`:''}
           ${lr.reason?`<div style="font-size:12px;margin-top:3px;">${esc(lr.reason)}</div>`:''}
           ${overlapWarn}
           ${rejectInfo}
@@ -14547,8 +14583,8 @@ function renderLeaveRequestsAdmin() {
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;flex-direction:column;">
           <span class="badge ${stCls}">${stTxt}</span>
-          ${lr.status==='pending'?`<button class="btn bg btn-sm" onclick="approveLeave('${lr.id}')">✅ قبول</button><button class="btn bd btn-sm" onclick="rejectLeave('${lr.id}')">❌ رفض</button>`:''}
-          ${lr.status==='approved'?`<button class="btn bw btn-sm" style="font-size:11px;" onclick="revokeLeave('${lr.id}')">↩️ إلغاء</button>`:''}
+          ${lr.status==='pending'&&(CU.type==='admin'||lr.empId!==CU.empId)?`<button class="btn bg btn-sm" onclick="approveLeave('${lr.id}')">✅ قبول</button><button class="btn bd btn-sm" onclick="rejectLeave('${lr.id}')">❌ رفض</button>`:''}
+          ${lr.status==='approved'&&CU.type==='admin'?`<button class="btn bw btn-sm" style="font-size:11px;" onclick="revokeLeave('${lr.id}')">↩️ إلغاء</button>`:''}
         </div>
       </div>
     </div>`;
