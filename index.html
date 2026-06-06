@@ -4020,7 +4020,7 @@ function getPrintHeader(subtitle) {
 
 <!-- Subscription Modal -->
 <div class="overlay" id="subscriptionModal">
-  <div class="modal-box" style="max-width:500px;">
+  <div class="modal-box" style="max-width:560px;">
     <div class="modal-hdr"><h3 id="subMT">➕ اشتراك جديد</h3><button class="close-btn" onclick="closeM('subscriptionModal')">×</button></div>
     <input type="hidden" id="subEditId">
     <div class="form-group">
@@ -4040,8 +4040,8 @@ function getPrintHeader(subtitle) {
     </div>
     <div class="fr">
       <div class="form-group">
-        <label>مبلغ الاشتراك (د.إ) <span class="req">*</span></label>
-        <input class="form-control" type="number" id="subAmount" min="0" placeholder="0.00">
+        <label>مبلغ الاشتراك الكلي (د.إ) <span class="req">*</span></label>
+        <input class="form-control" type="number" id="subAmount" min="0" placeholder="0.00" oninput="subPreviewInstallments()">
       </div>
       <div class="form-group">
         <label>مدة الاشتراك (سريعة)</label>
@@ -4054,6 +4054,37 @@ function getPrintHeader(subtitle) {
         </select>
       </div>
     </div>
+
+    <!-- ── قسم الأقساط ── -->
+    <div style="border:1.5px solid var(--primary);border-radius:10px;padding:12px 14px;margin-bottom:12px;background:linear-gradient(135deg,#f0f6ff,#e8f0fb);">
+      <div style="font-weight:700;font-size:13px;color:var(--primary);margin-bottom:10px;">💳 طريقة السداد</div>
+      <div class="fr" style="gap:10px;margin-bottom:10px;">
+        <div class="form-group" style="flex:1;">
+          <label>نوع السداد</label>
+          <select class="form-control" id="subPayType" onchange="subOnPayTypeChange()">
+            <option value="full">دفعة واحدة كاملة</option>
+            <option value="installments">أقساط متعددة</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1;" id="subInstCountWrap">
+          <label>عدد الأقساط <span class="req">*</span></label>
+          <select class="form-control" id="subInstCount" onchange="subPreviewInstallments()">
+            <option value="2">2 أقساط</option>
+            <option value="3">3 أقساط</option>
+            <option value="4">4 أقساط</option>
+            <option value="6">6 أقساط</option>
+            <option value="custom">مخصص...</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1;display:none;" id="subInstCustomWrap">
+          <label>عدد مخصص</label>
+          <input class="form-control" type="number" id="subInstCustom" min="2" max="60" value="5" oninput="subPreviewInstallments()">
+        </div>
+      </div>
+      <!-- معاينة الأقساط -->
+      <div id="subInstPreview" style="display:none;"></div>
+    </div>
+
     <div class="form-group">
       <label>ملاحظات</label>
       <input class="form-control" id="subNote" placeholder="مثال: استشارات قانونية غير محدودة">
@@ -17560,6 +17591,18 @@ function openSubscriptionModal(id=null) {
       document.getElementById('subEnd').value = sub.endDate||'';
       document.getElementById('subAmount').value = sub.amount||'';
       document.getElementById('subNote').value = sub.note||'';
+      // restore pay type
+      const payType = sub.installments && sub.installments.length>1 ? 'installments' : 'full';
+      document.getElementById('subPayType').value = payType;
+      if(payType==='installments'){
+        const cnt = sub.installments.length;
+        const sel = document.getElementById('subInstCount');
+        const opts = ['2','3','4','6'];
+        if(opts.includes(String(cnt))) sel.value=String(cnt);
+        else { sel.value='custom'; document.getElementById('subInstCustom').value=cnt; }
+      }
+      subOnPayTypeChange();
+      subPreviewInstallments();
     }
   } else {
     document.getElementById('subClient').value='';
@@ -17568,7 +17611,10 @@ function openSubscriptionModal(id=null) {
     document.getElementById('subAmount').value='';
     document.getElementById('subNote').value='';
     document.getElementById('subDuration').value='12';
+    document.getElementById('subPayType').value='full';
+    document.getElementById('subInstCount').value='4';
     subCalcEnd();
+    subOnPayTypeChange();
   }
   openM('subscriptionModal');
 }
@@ -17582,6 +17628,84 @@ function subCalcEnd() {
     d.setDate(d.getDate()-1);
     document.getElementById('subEnd').value = d.toISOString().split('T')[0];
   }
+  subPreviewInstallments();
+}
+
+function subOnPayTypeChange() {
+  const payType = document.getElementById('subPayType').value;
+  const instWrap = document.getElementById('subInstCountWrap');
+  instWrap.style.display = payType==='installments' ? '' : 'none';
+  subPreviewInstallments();
+}
+
+function subGetInstCount() {
+  const sel = document.getElementById('subInstCount').value;
+  if(sel==='custom') return parseInt(document.getElementById('subInstCustom').value||'2');
+  return parseInt(sel||'4');
+}
+
+// Returns array of {dueDate, amount, label} for preview
+function subCalcInstallments(startDate, endDate, totalAmount, count) {
+  if(!startDate || !totalAmount || count<1) return [];
+  const perInst = Math.floor((totalAmount / count) * 100) / 100;
+  const lastInst = Math.round((totalAmount - perInst*(count-1))*100)/100;
+  const result = [];
+  for(let i=0;i<count;i++){
+    const d = new Date(startDate);
+    // Spread installments evenly across the subscription period
+    if(endDate && count>1){
+      const start = new Date(startDate);
+      const end   = new Date(endDate);
+      const totalMs = end - start;
+      const stepMs  = totalMs / (count - 1);
+      const dd = i===0 ? start : i===count-1 ? end : new Date(start.getTime() + stepMs*i);
+      result.push({ dueDate: dd.toISOString().split('T')[0], amount: i===count-1 ? lastInst : perInst, label:`قسط ${i+1}` });
+    } else {
+      // fallback: monthly
+      d.setMonth(d.getMonth()+i);
+      result.push({ dueDate: d.toISOString().split('T')[0], amount: i===count-1 ? lastInst : perInst, label:`قسط ${i+1}` });
+    }
+  }
+  return result;
+}
+
+function subPreviewInstallments() {
+  const payType = document.getElementById('subPayType').value;
+  const preview = document.getElementById('subInstPreview');
+  const instCountSel = document.getElementById('subInstCount');
+  // show/hide custom count input
+  const isCustom = instCountSel.value==='custom';
+  document.getElementById('subInstCustomWrap').style.display = (payType==='installments' && isCustom) ? '' : 'none';
+
+  if(payType!=='installments'){ preview.style.display='none'; return; }
+  const start  = document.getElementById('subStart').value;
+  const end    = document.getElementById('subEnd').value;
+  const amount = parseFloat(document.getElementById('subAmount').value||0);
+  const count  = subGetInstCount();
+  if(!start || !amount || count<2){ preview.style.display='none'; return; }
+  const insts  = subCalcInstallments(start, end, amount, count);
+  preview.style.display='';
+  preview.innerHTML=`
+    <div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:6px;">📋 معاينة الأقساط (${count} أقساط)</div>
+    <div class="tbl-wrap" style="max-height:180px;overflow-y:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr>
+        <th style="background:var(--primary);color:#fff;padding:5px 8px;text-align:right;">القسط</th>
+        <th style="background:var(--primary);color:#fff;padding:5px 8px;text-align:right;">تاريخ الاستحقاق</th>
+        <th style="background:var(--primary);color:#fff;padding:5px 8px;text-align:right;">المبلغ</th>
+      </tr></thead>
+      <tbody>
+        ${insts.map((inst,i)=>`<tr style="background:${i%2===0?'#fff':'#f7faff'};">
+          <td style="padding:5px 8px;font-weight:700;color:var(--primary);">${inst.label}</td>
+          <td style="padding:5px 8px;">${fmtDate(inst.dueDate)}</td>
+          <td style="padding:5px 8px;font-weight:700;color:var(--success);">${inst.amount.toLocaleString('ar')} د.إ</td>
+        </tr>`).join('')}
+        <tr style="background:#e8f0fb;font-weight:800;">
+          <td colspan="2" style="padding:5px 8px;color:var(--primary);">الإجمالي</td>
+          <td style="padding:5px 8px;color:var(--primary);">${amount.toLocaleString('ar')} د.إ</td>
+        </tr>
+      </tbody>
+    </table></div>`;
 }
 
 function saveSubscription() {
@@ -17591,17 +17715,27 @@ function saveSubscription() {
   const endDate = document.getElementById('subEnd').value;
   const amount = parseFloat(document.getElementById('subAmount').value||0);
   const note = document.getElementById('subNote').value.trim();
+  const payType = document.getElementById('subPayType').value;
+  const instCount = payType==='installments' ? subGetInstCount() : 1;
   if(!clientName){ toast('⚠️ أدخل اسم العميل','warning'); return; }
   if(!sdValidate([
     {id:'subStart', label:'تاريخ بداية الاشتراك', required:true},
     {id:'subEnd',   label:'تاريخ انتهاء الاشتراك', required:true, startId:'subStart'}
   ])) return;
   if(!amount||amount<=0){ toast('⚠️ أدخل مبلغ الاشتراك','warning'); return; }
+  if(payType==='installments' && instCount<2){ toast('⚠️ عدد الأقساط يجب أن يكون 2 أو أكثر','warning'); return; }
+
+  // Generate installments array
+  const installments = payType==='installments'
+    ? subCalcInstallments(startDate, endDate, amount, instCount)
+    : [{dueDate: endDate, amount: amount, label:'دفعة كاملة'}];
+
   const clientObj = S.clients.find(c=>c.name.trim()===clientName);
   if(!S.subscriptions) S.subscriptions=[];
+
   if(editId){
     const sub = S.subscriptions.find(x=>x.id===editId);
-    if(sub) Object.assign(sub,{clientId:clientObj?.id||'',clientName,startDate,endDate,amount,note,updatedAt:new Date().toISOString()});
+    if(sub) Object.assign(sub,{clientId:clientObj?.id||'',clientName,startDate,endDate,amount,note,installments,payType,updatedAt:new Date().toISOString()});
     // ── مزامنة القيد المالي المرتبط ──
     const linkedFin = (S.finances||[]).find(f=>f.subId===editId);
     if(linkedFin){
@@ -17614,34 +17748,66 @@ function saveSubscription() {
         updatedAt:new Date().toISOString()
       });
     }
-    toast('✅ تم تحديث الاشتراك والقيد المالي المرتبط','success');
-  } else {
-    S.subscriptions.push({id:uid(),clientId:clientObj?.id||'',clientName,startDate,endDate,amount,note,createdAt:new Date().toISOString(),createdBy:CU.fullName});
-    toast('✅ تم إضافة الاشتراك','success');
-    logAct('إضافة اشتراك',clientName);
-  }
-  save(); closeM('subscriptionModal'); renderSubscriptions();
-  // Sync: show subscription in finance tab linked to client
-  if(!editId) {
-    // Create a finance record for this subscription so it appears in client statement
-    const clientObj2 = S.clients.find(c=>c.name.trim()===clientName);
-    if(clientObj2) {
-      const lastSub = S.subscriptions[S.subscriptions.length-1];
-      if(lastSub && !S.finances.find(f=>f.subId===lastSub.id)) {
+    // ── تحديث سجلات الأقساط المالية إن وجدت ──
+    if(payType==='installments'){
+      const existingInsts = (S.finances||[]).filter(f=>f.subInstId===editId);
+      // Remove old installment finance records
+      S.finances = (S.finances||[]).filter(f=>f.subInstId!==editId);
+      // Re-create them
+      installments.forEach((inst,i)=>{
+        if(!clientObj) return;
         S.finances.push({
-          id:uid(), subId:lastSub.id,
+          id:uid(), subInstId:editId, subInstIdx:i,
+          clientId:clientObj.id, clientName:clientObj.name,
+          caseId:'', type:`قسط اشتراك (${inst.label})`,
+          amount:inst.amount, paid:0,
+          dueDate:inst.dueDate,
+          note:note||`${inst.label} — اشتراك ${startDate} → ${endDate}`,
+          createdAt:new Date().toISOString(), createdBy:CU.fullName
+        });
+      });
+    }
+    toast('✅ تم تحديث الاشتراك','success');
+  } else {
+    const newSub = {id:uid(),clientId:clientObj?.id||'',clientName,startDate,endDate,amount,note,installments,payType,createdAt:new Date().toISOString(),createdBy:CU.fullName};
+    S.subscriptions.push(newSub);
+    toast('✅ تم إضافة الاشتراك','success');
+    logAct('إضافة اشتراك', clientName + (payType==='installments'?` (${instCount} أقساط)`:''));
+    // Create finance records
+    if(!S.finances) S.finances=[];
+    const clientObj2 = S.clients.find(c=>c.name.trim()===clientName);
+    if(payType==='installments'){
+      // Create separate finance record per installment
+      installments.forEach((inst,i)=>{
+        if(!clientObj2) return;
+        S.finances.push({
+          id:uid(), subInstId:newSub.id, subInstIdx:i,
+          clientId:clientObj2.id, clientName:clientObj2.name,
+          caseId:'', type:`قسط اشتراك (${inst.label})`,
+          amount:inst.amount, paid:0,
+          dueDate:inst.dueDate,
+          note:note||`${inst.label} — اشتراك ${startDate} → ${endDate}`,
+          createdAt:new Date().toISOString(), createdBy:CU.fullName
+        });
+      });
+      toast(`💳 تم إنشاء ${installments.length} سجل مالي للأقساط`, 'info');
+    } else {
+      // Single finance record
+      if(clientObj2 && !S.finances.find(f=>f.subId===newSub.id)) {
+        S.finances.push({
+          id:uid(), subId:newSub.id,
           clientId:clientObj2.id, clientName:clientObj2.name,
           caseId:'', type:'اشتراك سنوي',
           amount:amount, paid:0,
-          dueDate:lastSub.endDate,
-          note:note||'اشتراك: '+lastSub.startDate+' — '+lastSub.endDate,
+          dueDate:newSub.endDate,
+          note:note||'اشتراك: '+newSub.startDate+' — '+newSub.endDate,
           createdAt:new Date().toISOString(), createdBy:CU.fullName
         });
-        save();
         toast('✅ تم ربط الاشتراك بالسجل المالي', 'info');
       }
     }
   }
+  save(); closeM('subscriptionModal'); renderSubscriptions();
 }
 
 function renderSubscriptions() {
@@ -17697,23 +17863,37 @@ function renderSubscriptions() {
     </div>
   </div>
   <div class="tbl-wrap"><table><thead><tr>
-    <th>العميل</th><th>بداية الاشتراك</th><th>نهاية الاشتراك</th><th>المبلغ الإجمالي</th><th>المحصّل</th><th>المتبقي</th><th>نسبة التحصيل</th><th>حالة الاشتراك</th><th>ملاحظات</th><th>إجراءات</th>
+    <th>العميل</th><th>بداية الاشتراك</th><th>نهاية الاشتراك</th><th>طريقة السداد</th><th>المبلغ الإجمالي</th><th>المحصّل</th><th>المتبقي</th><th>نسبة التحصيل</th><th>حالة الاشتراك</th><th>ملاحظات</th><th>إجراءات</th>
   </tr></thead><tbody>${subs.map(s=>{
     const active = s.endDate>=todayStr;
     const daysLeft = daysTo(s.endDate);
     const expLbl2 = daysLeft===null?'—':daysLeft<0?`انتهى منذ ${Math.abs(daysLeft)} يوم`:daysLeft===0?'ينتهي اليوم':`${daysLeft} يوم متبقي`;
     const badgeCls = daysLeft===null?'b-info':daysLeft<0?'b-off':daysLeft<=30?'b-warn':'b-ok';
-    // Link to finance record
-    const finRec = (S.finances||[]).find(f=>f.subId===s.id);
-    const paidAmt = finRec ? getFinancePaid(finRec.id) : 0;
-    const remAmt = (s.amount||0) - paidAmt;
-    const collectPct = s.amount>0 ? Math.min(100,Math.round(paidAmt/(s.amount)*100)) : 0;
-    // Payments
-    const pays = finRec ? (S.payments||[]).filter(p=>p.finId===finRec.id) : [];
+    const isInst = s.payType==='installments' && s.installments && s.installments.length>1;
+    let paidAmt=0, remAmt=0, collectPct=0, totalPays=0, instPayBtns='';
+    if(isInst){
+      const instFins = (S.finances||[]).filter(f=>f.subInstId===s.id);
+      paidAmt = instFins.reduce((a,f)=>a+getFinancePaid(f.id),0);
+      remAmt  = (s.amount||0) - paidAmt;
+      collectPct = s.amount>0?Math.min(100,Math.round(paidAmt/s.amount*100)):0;
+      totalPays = instFins.reduce((a,f)=>a+(S.payments||[]).filter(p=>p.finId===f.id).length,0);
+      instPayBtns = `<button class="btn bs btn-sm" onclick="showSubInstallments('${s.id}')" title="عرض الأقساط">📋</button>`;
+    } else {
+      const finRec = (S.finances||[]).find(f=>f.subId===s.id);
+      paidAmt = finRec ? getFinancePaid(finRec.id) : 0;
+      remAmt  = (s.amount||0) - paidAmt;
+      collectPct = s.amount>0?Math.min(100,Math.round(paidAmt/s.amount*100)):0;
+      totalPays = finRec ? (S.payments||[]).filter(p=>p.finId===finRec.id).length : 0;
+      instPayBtns = (()=>{ const finRec2=(S.finances||[]).find(f=>f.subId===s.id); return finRec2?`<button class="btn bg btn-sm" onclick="openPaymentModalFor('${finRec2.id}')" title="إضافة دفعة">💳</button>`:''; })();
+    }
+    const payTypeLbl = isInst
+      ? `<span class="badge b-info" style="font-size:10px;">💳 ${s.installments.length} أقساط</span>`
+      : `<span class="badge b-ok" style="font-size:10px;">💰 دفعة واحدة</span>`;
     return `<tr>
-      <td style="font-weight:700;">${esc(s.clientName)}<br><span style="font-size:10px;color:var(--text-muted);">${pays.length} دفعة مسجّلة</span></td>
+      <td style="font-weight:700;">${esc(s.clientName)}<br><span style="font-size:10px;color:var(--text-muted);">${totalPays} دفعة مسجّلة</span></td>
       <td>${fmtDate(s.startDate)}</td>
       <td>${fmtDate(s.endDate)}</td>
+      <td>${payTypeLbl}</td>
       <td style="font-weight:700;color:var(--primary);">${(s.amount||0).toLocaleString('ar')} د.إ</td>
       <td style="font-weight:700;color:var(--success);">${paidAmt.toLocaleString('ar')} د.إ</td>
       <td style="font-weight:700;color:${remAmt>0?'var(--danger)':'var(--success)'};">${remAmt.toLocaleString('ar')} د.إ</td>
@@ -17723,7 +17903,7 @@ function renderSubscriptions() {
       <td>
         <div class="btn-grp">
           <button class="btn bi btn-sm" onclick="openSubscriptionModal('${s.id}')">✏️</button>
-          ${finRec?`<button class="btn bg btn-sm" onclick="openPaymentModalFor('${finRec.id}')" title="إضافة دفعة">💳</button>`:''}
+          ${instPayBtns}
           <button class="btn bs btn-sm" onclick="printSubInvoiceSingle('${s.id}')">🖨️</button>
           <button class="btn bd btn-sm" onclick="delSubscription('${s.id}')">🗑️</button>
         </div>
@@ -17731,13 +17911,88 @@ function renderSubscriptions() {
     </tr>`;
   }).join('')}</tbody>
   <tfoot><tr style="background:var(--primary);color:#fff;font-weight:700;">
-    <td colspan="3" style="padding:10px 14px;text-align:right;">📊 الإجمالي الكلي (${subs.length} اشتراك)</td>
+    <td colspan="4" style="padding:10px 14px;text-align:right;">📊 الإجمالي الكلي (${subs.length} اشتراك)</td>
     <td style="padding:10px 8px;">${totalSubAmount.toLocaleString('ar')} د.إ</td>
     <td style="padding:10px 8px;">${totalCollected.toLocaleString('ar')} د.إ</td>
     <td style="padding:10px 8px;color:${totalRemaining>0?'#ffc8c8':'#a0f0c8'};">${totalRemaining.toLocaleString('ar')} د.إ</td>
     <td colspan="4" style="padding:10px 8px;">نسبة التحصيل: ${totalSubAmount>0?Math.round(totalCollected/totalSubAmount*100):0}%</td>
   </tr></tfoot>
   </table></div>`;
+}
+
+
+// ── عرض نافذة الأقساط التفصيلية ──
+function showSubInstallments(subId) {
+  const s = (S.subscriptions||[]).find(x=>x.id===subId);
+  if(!s || !s.installments) return;
+  const instFins = (S.finances||[]).filter(f=>f.subInstId===subId);
+  const todayStr = today();
+  let totalPaid=0, totalRem=0;
+  const rows = s.installments.map((inst,i)=>{
+    const finRec = instFins.find(f=>f.subInstIdx===i);
+    const iPaid  = finRec ? getFinancePaid(finRec.id) : 0;
+    const iRem   = inst.amount - iPaid;
+    const iDue   = daysTo(inst.dueDate);
+    const iOverdue = iRem>0 && iDue!==null && iDue<0;
+    const iDone  = iRem<=0;
+    const iLbl   = iDone?'✅ مدفوع':iDue===null?'—':iDue<0?`متأخر ${Math.abs(iDue)} يوم`:iDue===0?'اليوم':`${iDue} يوم`;
+    const rowBg  = iDone?'#f0fff4':iOverdue?'#fff0f0':'#fff';
+    totalPaid+=iPaid; totalRem+=iRem;
+    const pays = finRec ? (S.payments||[]).filter(p=>p.finId===finRec.id) : [];
+    const paysDetail = pays.length ? pays.map(p=>`<div style="font-size:10px;color:var(--success);margin-top:2px;">💳 ${fmtDate(p.date)} — ${p.amount.toLocaleString('ar')} د.إ ${p.method?'('+p.method+')':''}</div>`).join('') : '';
+    return `<tr style="background:${rowBg};">
+      <td style="padding:7px 10px;font-weight:700;color:var(--primary);">${inst.label}</td>
+      <td style="padding:7px 10px;">${fmtDate(inst.dueDate)}</td>
+      <td style="padding:7px 10px;font-weight:700;">${inst.amount.toLocaleString('ar')} د.إ</td>
+      <td style="padding:7px 10px;color:var(--success);font-weight:700;">${iPaid.toLocaleString('ar')} د.إ${paysDetail}</td>
+      <td style="padding:7px 10px;font-weight:700;color:${iRem>0?'var(--danger)':'var(--success)'};">${iRem.toLocaleString('ar')} د.إ</td>
+      <td style="padding:7px 10px;"><span style="font-size:11px;font-weight:700;color:${iDone?'var(--success)':iOverdue?'var(--danger)':'var(--primary)'};">${iLbl}</span></td>
+      <td style="padding:7px 6px;">${finRec&&iRem>0?`<button class="btn bg btn-sm" style="font-size:11px;" onclick="openPaymentModalFor('${finRec.id}')">💳 دفع</button>`:iDone?'<span style="color:var(--success);">✅</span>':''}</td>
+    </tr>`;
+  }).join('');
+  const pct = s.amount>0?Math.min(100,Math.round(totalPaid/s.amount*100)):0;
+  const html = `<div style="padding:4px;">
+    <div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px;">📋 أقساط اشتراك — ${esc(s.clientName)}</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+      <div style="flex:1;min-width:110px;background:#f0f6ff;border-radius:8px;padding:8px 12px;text-align:center;">
+        <div style="font-size:18px;font-weight:800;color:var(--primary);">${s.installments.length}</div>
+        <div style="font-size:11px;color:#666;">إجمالي الأقساط</div>
+      </div>
+      <div style="flex:1;min-width:110px;background:#f0fff4;border-radius:8px;padding:8px 12px;text-align:center;">
+        <div style="font-size:16px;font-weight:800;color:var(--success);">${totalPaid.toLocaleString('ar')} د.إ</div>
+        <div style="font-size:11px;color:#666;">المحصّل</div>
+      </div>
+      <div style="flex:1;min-width:110px;background:${totalRem>0?'#fff0f0':'#f0fff4'};border-radius:8px;padding:8px 12px;text-align:center;">
+        <div style="font-size:16px;font-weight:800;color:${totalRem>0?'var(--danger)':'var(--success)'};">${totalRem.toLocaleString('ar')} د.إ</div>
+        <div style="font-size:11px;color:#666;">المتبقي</div>
+      </div>
+    </div>
+    <div style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;"><span>نسبة التحصيل</span><span style="font-weight:700;">${pct}%</span></div>
+      <div style="height:8px;background:#eee;border-radius:4px;overflow:hidden;"><div style="width:${pct}%;height:100%;background:${pct>=100?'var(--success)':pct>=50?'var(--warning)':'var(--danger)'};border-radius:4px;transition:.4s;"></div></div>
+    </div>
+    <div class="tbl-wrap" style="max-height:300px;overflow-y:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr>
+        <th style="background:var(--primary);color:#fff;padding:7px 10px;text-align:right;">القسط</th>
+        <th style="background:var(--primary);color:#fff;padding:7px 10px;text-align:right;">الاستحقاق</th>
+        <th style="background:var(--primary);color:#fff;padding:7px 10px;text-align:right;">المبلغ</th>
+        <th style="background:var(--primary);color:#fff;padding:7px 10px;text-align:right;">المدفوع</th>
+        <th style="background:var(--primary);color:#fff;padding:7px 10px;text-align:right;">المتبقي</th>
+        <th style="background:var(--primary);color:#fff;padding:7px 10px;text-align:right;">الحالة</th>
+        <th style="background:var(--primary);color:#fff;padding:7px 6px;"></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+  </div>`;
+  // Show in a dynamic modal
+  let dm = document.getElementById('_dynModal');
+  if(!dm){ dm=document.createElement('div'); dm.id='_dynModal'; dm.className='overlay'; dm.style.zIndex='9999';
+    dm.innerHTML='<div class="modal-box" id="_dynBox" style="max-width:700px;max-height:90vh;overflow-y:auto;"><div class="modal-hdr"><h3 id="_dynTitle"></h3><button class="close-btn" onclick="document.getElementById(\'_dynModal\').style.display=\'none\'">×</button></div><div id="_dynBody"></div></div>';
+    document.body.appendChild(dm); }
+  document.getElementById('_dynTitle').textContent='📋 تفاصيل الأقساط';
+  document.getElementById('_dynBody').innerHTML=html;
+  dm.style.display='flex';
 }
 
 function delSubscription(id){
@@ -20023,16 +20278,16 @@ function sdValidate(fields) {
       }
     }
 
-    // Validate end >= start
+    // Validate end > start
     if(val && f.startId) {
       const startHid = document.getElementById(f.startId);
       const startVal = startHid ? startHid.value : '';
-      if(startVal && val < startVal) {
+      if(startVal && val <= startVal) {
         if(txt){ txt.classList.add('sd-err'); txt.classList.remove('sd-ok'); }
         const startHidWrap = startHid.closest ? startHid.closest('.sd-wrap') : null;
         const startTxt = startHidWrap ? startHidWrap.querySelector('.sd-text') : null;
         if(startTxt){ startTxt.classList.add('sd-err'); startTxt.classList.remove('sd-ok'); }
-        toast('⚠️ تاريخ انتهاء ' + f.label + ' يجب أن يكون في نفس يوم البداية أو بعده', 'warning');
+        toast('⚠️ تاريخ انتهاء ' + f.label + ' يجب أن يكون بعد تاريخ الإصدار', 'warning');
         ok = false;
       }
     }
