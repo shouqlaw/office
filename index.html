@@ -10,7 +10,7 @@
 <style>
 /* ═══════════════ ROOT ═══════════════ */
 :root{
-  --primary:#0f4c81;--primary-light:#1a6bb5;--primary-dark:#083459;
+  --primary:#0f4c81;--primary-light:#1a6bb5;--primary-dark:#083459;--primary-rgb:15,76,129;
   --accent:#e8a020;--accent-light:#f5c563;
   --success:#1a9e5f;--danger:#c0392b;--warning:#d4870a;--info:#3498db;
   --bg:#f0f4f8;--card:#fff;--text:#1a2940;--text-muted:#6b7e99;
@@ -290,6 +290,17 @@ tbody tr:nth-child(even){background:rgba(15,76,129,.015);}
 .emp-prev{background:rgba(255,255,255,.1);border-radius:10px;padding:8px 14px;margin-bottom:10px;font-size:13px;font-weight:600;min-height:32px;}
 .att-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
 .att-btn{padding:11px 22px;border-radius:12px;font-family:'Cairo',sans-serif;font-size:14px;font-weight:700;border:none;cursor:pointer;min-width:120px;transition:.2s;}
+/* ── Segmented Control ── */
+.att-seg-btn{display:flex;align-items:center;gap:6px;padding:8px 18px;border-radius:9px;border:none;cursor:pointer;font-family:'Cairo',sans-serif;font-size:13px;font-weight:600;color:var(--text-muted);background:transparent;transition:all .2s;white-space:nowrap;}
+.att-seg-btn:hover{background:rgba(var(--primary-rgb),.07);color:var(--primary);}
+.att-seg-btn.active{background:var(--primary);color:#fff;box-shadow:0 3px 10px rgba(var(--primary-rgb),.35);}
+/* ── Employee Docs Grid ── */
+.emp-doc-card{background:var(--card-bg);border:1.5px solid var(--border);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px;transition:.2s;position:relative;}
+.emp-doc-card:hover{border-color:var(--primary);box-shadow:0 4px 16px rgba(var(--primary-rgb),.12);}
+.emp-doc-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:2px;}
+.emp-doc-name{font-weight:700;font-size:13px;color:var(--text);}
+.emp-doc-meta{font-size:11px;color:var(--text-muted);}
+#myDocsGrid,#adminEmpDocsGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;}
 .att-btn:hover{transform:translateY(-1px);}
 .att-btn.cin{background:var(--accent);color:#fff;}
 .att-btn.cout{background:rgba(255,255,255,.15);color:#fff;border:2px solid rgba(255,255,255,.3);}
@@ -819,125 +830,158 @@ function getPrintHeader(subtitle) {
 
 <!-- ══════ PAGE: ATTENDANCE ══════ -->
 <div class="page" id="page-attendance">
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
 
-    <!-- ══ العمود الأيسر: الحضور + سجل الموظف ══ -->
-    <div style="display:flex;flex-direction:column;gap:16px;">
+  <!-- ══════════════════════════════════════════════
+       SEGMENTED CONTROL — 3 أقسام رئيسية
+  ══════════════════════════════════════════════ -->
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:18px;">
+    <!-- Segmented tabs -->
+    <div id="attSegWrap" style="display:flex;background:var(--bg);border:1.5px solid var(--border);border-radius:12px;padding:4px;gap:2px;">
+      <button id="attSeg-presence" class="att-seg-btn active" onclick="switchAttSeg('presence')">
+        <span>⏰</span> <span class="att-seg-lbl">الحضور والغياب</span>
+      </button>
+      <button id="attSeg-finance" class="att-seg-btn" onclick="switchAttSeg('finance')">
+        <span>💼</span> <span class="att-seg-lbl">حسابي المالي</span>
+      </button>
+      <button id="attSeg-docs" class="att-seg-btn" onclick="switchAttSeg('docs')">
+        <span>📁</span> <span class="att-seg-lbl">وثائقي</span>
+        <span id="myDocsCount" style="display:none;background:var(--primary);color:#fff;border-radius:10px;font-size:10px;padding:1px 6px;margin-right:2px;"></span>
+      </button>
+    </div>
+    <!-- تنبيه جلسات اليوم/الغد للموظف -->
+    <div id="empSessionAlert" style="flex:1;min-width:0;"></div>
+  </div>
 
-      <!-- بطاقة تسجيل الحضور -->
-      <div class="att-panel">
-        <h2>⏰ تسجيل الحضور والانصراف</h2>
-        <div id="attInfo" style="font-size:12px;opacity:.8;margin-bottom:8px;"></div>
-        <div id="attCodeSection">
-          <input class="att-code" type="text" id="attCode" placeholder="الكود" maxlength="6"
-            oninput="previewEmp()" onkeypress="if(event.key==='Enter')recAtt('cin')" autocomplete="off">
+  <!-- ══ SEG 1: الحضور والغياب ══ -->
+  <div id="attSeg-presence-content">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
+
+      <!-- العمود الأيسر -->
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <!-- بطاقة تسجيل الحضور -->
+        <div class="att-panel">
+          <h2>⏰ تسجيل الحضور والانصراف</h2>
+          <div id="attInfo" style="font-size:12px;opacity:.8;margin-bottom:8px;"></div>
+          <div id="attCodeSection">
+            <input class="att-code" type="text" id="attCode" placeholder="الكود" maxlength="6"
+              oninput="previewEmp()" onkeypress="if(event.key==='Enter')recAtt('cin')" autocomplete="off">
+          </div>
+          <div class="emp-prev" id="empPrev">أدخل الكود للمعاينة</div>
+          <div class="att-btns">
+            <button class="att-btn cin" onclick="recAtt('cin')">✅ حضور</button>
+            <button class="att-btn cout" onclick="recAtt('cout')">🚪 انصراف</button>
+          </div>
+          <div class="att-box" id="attBox"></div>
         </div>
-        <div class="emp-prev" id="empPrev">أدخل الكود للمعاينة</div>
-        <div class="att-btns">
-          <button class="att-btn cin" onclick="recAtt('cin')">✅ حضور</button>
-          <button class="att-btn cout" onclick="recAtt('cout')">🚪 انصراف</button>
+        <!-- KPI اليوم -->
+        <div id="attTodayKpi" style="display:none;"></div>
+        <!-- العداد الشهري -->
+        <div id="monthlyCounterCards" style="display:none;margin-bottom:14px;"></div>
+        <!-- رصيد الإجازات -->
+        <div id="leaveBalanceCard" style="display:none;"></div>
+        <!-- سجل حضور الموظف الشخصي -->
+        <div class="card" id="myAttCard">
+          <div class="card-title">
+            <span>📅 سجلي الشخصي</span>
+            <div class="btn-grp">
+              <input type="month" id="myAttMonth" class="form-control" style="width:150px;" onchange="renderMyAtt()">
+              <button class="btn btn-sm" style="background:var(--info);color:#fff;" onclick="openMyAttDetailModal()">📊 تقريري</button>
+              <button class="btn bg btn-sm" onclick="exportMyAttendance()">📥 Excel</button>
+              <button class="btn bp btn-sm" id="reqLeaveBtn" onclick="openLeaveModal()" style="display:none;">🏖️ إجازة</button>
+              <button class="btn btn-sm" id="reqExcuseBtn" onclick="openEmpExcuseModal()" style="display:none;background:var(--warning);color:#fff;">🛡️ إعفاء</button>
+            </div>
+          </div>
+          <div id="myAttList"></div>
+          <div id="myLeaveList" style="margin-top:14px;"></div>
         </div>
-        <div class="att-box" id="attBox"></div>
       </div>
-      <!-- KPI اليوم — للمشرف فقط -->
-      <div id="attTodayKpi" style="display:none;"></div>
 
-      <!-- بطاقة العداد الشهري -->
-      <div id="monthlyCounterCards" style="display:none;margin-bottom:14px;"></div>
-
-      <!-- بطاقة رصيد الإجازات -->
-      <div id="leaveBalanceCard" style="display:none;"></div>
-
-      <!-- سجل حضور الموظف الشخصي -->
-      <div class="card" id="myAttCard">
-        <div class="card-title">
-          <span>📅 سجلي الشخصي</span>
-          <div class="btn-grp">
-            <input type="month" id="myAttMonth" class="form-control" style="width:150px;" onchange="renderMyAtt()">
-            <button class="btn btn-sm" style="background:var(--info);color:#fff;" onclick="openMyAttDetailModal()">📊 تقريري التفصيلي</button>
-            <button class="btn bg btn-sm" onclick="exportMyAttendance()">📥 Excel</button>
-            <button class="btn bp btn-sm" id="reqLeaveBtn" onclick="openLeaveModal()" style="display:none;">🏖️ طلب إجازة</button>
-            <button class="btn btn-sm" id="reqExcuseBtn" onclick="openEmpExcuseModal()" style="display:none;background:var(--warning);color:#fff;">🛡️ طلب إعفاء غياب</button>
+      <!-- العمود الأيمن: سجل اليوم -->
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <div class="card">
+          <div class="card-title">
+            <span>📋 سجل اليوم</span>
+            <div class="btn-grp">
+              <button class="btn bg btn-sm" onclick="exportTodayAtt()">📥 Excel</button>
+              <button class="btn bw btn-sm" onclick="printTodayAtt()">🖨️ طباعة</button>
+            </div>
+          </div>
+          <div id="todayList"></div>
+        </div>
+        <!-- طلبات الإجازات للمدير (مدمجة هنا) -->
+        <div id="attLeaveRequestsSection" style="display:none;">
+          <div class="card">
+            <div class="card-title">
+              <span>🏖️ طلبات الإجازات</span>
+              <button class="btn bg btn-sm" onclick="exportLeaveRequests()">📥 Excel</button>
+            </div>
+            <div id="leaveRequestsAdmin"></div>
           </div>
         </div>
-        <div id="myAttList"></div>
-        <div id="myLeaveList" style="margin-top:14px;"></div>
+        <!-- طلبات الإعفاء للمدير -->
+        <div id="attExcuseRequestsSection" style="display:none;">
+          <div class="card">
+            <div class="card-title"><span>🛡️ طلبات الإعفاء من الغياب</span></div>
+            <div id="excuseRequestsAdminDiv"></div>
+          </div>
+        </div>
       </div>
-
     </div>
+  </div>
 
-    <!-- ══ العمود الأيمن: سجل اليوم + التسويات والعهد ══ -->
-    <div style="display:flex;flex-direction:column;gap:16px;">
+  <!-- ══ SEG 2: الحسابات المالية ══ -->
+  <div id="attSeg-finance-content" style="display:none;">
+    <div class="card" id="myCustodyCard">
+      <div class="card-title" style="flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+        <span style="font-size:14px;font-weight:700;color:var(--primary);">💼 حسابي المالي مع المكتب</span>
+        <div class="btn-grp" style="flex-wrap:wrap;gap:6px;" id="custodyActionBtns">
+          <button class="btn bp btn-sm" onclick="openPurchaseRequestModal()" title="اطلب شراء صنف أو خدمة من المكتب">🛒 طلب شراء</button>
+          <button class="btn bp btn-sm" onclick="openEmpExpenseModal()" title="طلب صرف مبلغ مصاريف">➕ طلب مصاريف</button>
+          <button class="btn btn-sm" style="background:#e65c00;color:#fff;" onclick="openOwnPaymentModal()" title="سجّل مبلغاً دفعته من مالك الخاص">💳 دفعت من مالي</button>
+          <button class="btn btn-sm" id="btnRequestSettlement" style="background:var(--success);color:#fff;" onclick="openSettlementRequestModal()">💰 طلب تسوية</button>
+          <button class="btn btn-sm" id="btnRequestClearance" style="background:linear-gradient(135deg,#c0392b,#e74c3c);color:#fff;" onclick="openEmpClearanceRequestModal()">🏁 طلب تصفية حساب</button>
+        </div>
+      </div>
+      <div id="myFinanceBalanceBox" style="margin-bottom:14px;"></div>
+      <div id="myOwedBanner"></div>
+      <div id="myFinanceBalance"></div>
+      <div id="myPurchaseRequests" style="margin-bottom:14px;"></div>
+      <div id="mySettlementRequests" style="margin-bottom:14px;"></div>
+      <div id="myClearanceRequests" style="margin-bottom:14px;"></div>
+      <div id="myPaymentRequests" style="margin-bottom:14px;"></div>
+      <div id="myPrepayRequests" style="margin-bottom:14px;"></div>
+      <div id="myOwnPayments" style="margin-bottom:14px;"></div>
+      <div id="myPendingCustodies" style="margin-bottom:14px;"></div>
+      <div id="myExpenseRequests" style="margin-bottom:14px;"></div>
+      <div id="myAllCustodies"></div>
+    </div>
+  </div>
 
-      <!-- تنبيه جلسات اليوم/الغد للموظف -->
-      <div id="empSessionAlert"></div>
-
-      <!-- سجل اليوم -->
+  <!-- ══ SEG 3: وثائقي ══ -->
+  <div id="attSeg-docs-content" style="display:none;">
+    <div class="card">
+      <div class="card-title" style="flex-wrap:wrap;gap:8px;">
+        <span style="font-size:14px;font-weight:700;color:var(--primary);">📁 وثائقي الشخصية</span>
+        <div class="btn-grp">
+          <button class="btn bp btn-sm" onclick="openUploadMyDocModal()">➕ رفع وثيقة جديدة</button>
+        </div>
+      </div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">يمكنك رفع وثائقك الشخصية (إقامة، جواز سفر، وكالة، شهادات، إلخ). تظهر للإدارة في ملفك الوظيفي.</p>
+      <div id="myDocsGrid"></div>
+    </div>
+    <!-- وثائق الموظفين — للمدير فقط -->
+    <div id="adminEmpDocsSection" style="display:none;margin-top:16px;">
       <div class="card">
-        <div class="card-title">
-          <span>📋 سجل اليوم</span>
+        <div class="card-title" style="flex-wrap:wrap;gap:8px;">
+          <span style="font-size:14px;font-weight:700;color:var(--primary);">🗂️ وثائق الموظفين — عرض إداري</span>
           <div class="btn-grp">
-            <button class="btn bg btn-sm" onclick="exportTodayAtt()">📥 Excel</button>
-            <button class="btn bw btn-sm" onclick="printTodayAtt()">🖨️ طباعة</button>
+            <select class="form-control" id="adminDocEmpFilter" style="width:180px;" onchange="renderAdminEmpDocs()">
+              <option value="all">كل الموظفين</option>
+            </select>
           </div>
         </div>
-        <div id="todayList"></div>
+        <div id="adminEmpDocsGrid"></div>
       </div>
-
-      <!-- ══ بطاقة التسويات والعهد — دائمة الظهور لكل موظف ══ -->
-      <div class="card" id="myCustodyCard">
-        <!-- ── رأس البطاقة ── -->
-        <div class="card-title" style="flex-wrap:wrap;gap:8px;margin-bottom:14px;">
-          <span style="font-size:14px;font-weight:700;color:var(--primary);">💼 حسابي المالي مع المكتب</span>
-          <div class="btn-grp" style="flex-wrap:wrap;gap:6px;" id="custodyActionBtns">
-            <button class="btn bp btn-sm" onclick="openPurchaseRequestModal()" title="اطلب شراء صنف أو خدمة من المكتب">🛒 طلب شراء</button>
-            <button class="btn bp btn-sm" onclick="openEmpExpenseModal()" title="طلب صرف مبلغ مصاريف">➕ طلب مصاريف</button>
-            <button class="btn btn-sm" style="background:#e65c00;color:#fff;" onclick="openOwnPaymentModal()" title="سجّل مبلغاً دفعته من مالك الخاص">💳 دفعت من مالي</button>
-            <button class="btn btn-sm" id="btnRequestSettlement" style="background:var(--success);color:#fff;" onclick="openSettlementRequestModal()" title="اطلب من المالية تسديد المبلغ المستحق لك">💰 طلب تسوية</button>
-            <button class="btn btn-sm" id="btnRequestClearance" style="background:linear-gradient(135deg,#c0392b,#e74c3c);color:#fff;" onclick="openEmpClearanceRequestModal()" title="اطلب تصفية حسابك الكاملة مع المكتب">🏁 طلب تصفية حساب</button>
-          </div>
-        </div>
-
-        <!-- ── مربع دائن / مدين / الرصيد ── -->
-        <div id="myFinanceBalanceBox" style="margin-bottom:14px;"></div>
-
-        <!-- ── بانر تنبيه المبالغ المستحقة ── -->
-        <div id="myOwedBanner"></div>
-
-        <!-- ── محتوى البطاقة الديناميكي ── -->
-        <div id="myFinanceBalance"></div>
-        <div id="myPurchaseRequests" style="margin-bottom:14px;"></div>
-        <div id="mySettlementRequests" style="margin-bottom:14px;"></div>
-        <div id="myClearanceRequests" style="margin-bottom:14px;"></div>
-        <div id="myPaymentRequests" style="margin-bottom:14px;"></div>
-        <div id="myPrepayRequests" style="margin-bottom:14px;"></div>
-        <div id="myOwnPayments" style="margin-bottom:14px;"></div>
-        <div id="myPendingCustodies" style="margin-bottom:14px;"></div>
-        <div id="myExpenseRequests" style="margin-bottom:14px;"></div>
-        <div id="myAllCustodies"></div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- قسم طلبات الإجازات للمدير -->
-  <div id="attLeaveRequestsSection" style="display:none;margin-top:16px;">
-    <div class="card">
-      <div class="card-title">
-        <span>🏖️ طلبات الإجازات والموافقة عليها</span>
-        <button class="btn bg btn-sm" onclick="exportLeaveRequests()">📥 Excel</button>
-      </div>
-      <div id="leaveRequestsAdmin"></div>
-    </div>
-  </div>
-
-  <!-- قسم طلبات الإعفاء من الغياب للمدير -->
-  <div id="attExcuseRequestsSection" style="display:none;margin-top:16px;">
-    <div class="card">
-      <div class="card-title">
-        <span>🛡️ طلبات الإعفاء من الغياب</span>
-      </div>
-      <div id="excuseRequestsAdminDiv"></div>
     </div>
   </div>
 
@@ -4881,7 +4925,8 @@ const DS = {
   officeExpenses:[],
   ownerTransfers:[],
   clientReminders:[],
-  clientRefunds:[]   // {id, finId, caseId, clientId, clientName, amount, date, method, ref, reason, note, createdAt, createdBy}
+  clientRefunds:[],   // {id, finId, caseId, clientId, clientName, amount, date, method, ref, reason, note, createdAt, createdBy}
+  empDocUploads:[]    // {id, empId, empName, name, note, data, type, size, uploadedBy, uploadedAt}
 };
 
 // Built-in admin account (stored separately for security)
@@ -5120,19 +5165,11 @@ function printCaseFile(caseId) {
   ${notes.length?`<div class="section"><h3>📝 سجل الملاحظات</h3><table><thead><tr><th>الملاحظة</th><th>التاريخ</th></tr></thead><tbody>
     ${notes.map(n=>`<tr><td style="white-space:pre-wrap;">${n.text}</td><td>${n.at||'-'}</td></tr>`).join('')}
   </tbody></table></div>`:''}
-  ${fins.length?`<div class="section"><h3>💰 الملخص المالي</h3>
-    <div class="grid">
-      ${(canPrintFin&&c.agreedFees)?`<div class="field"><b>الأتعاب المتفق عليها:</b> <span style="color:#1565c0;font-weight:700;">${c.agreedFees.toLocaleString()} درهم</span></div>`:''}
-      ${(canPrintFin&&c.completionPct)?`<div class="field"><b>نسبة الإنجاز:</b> ${c.completionPct}%</div>`:''}
-      <div class="field"><b>إجمالي الأتعاب المُدرجة:</b> ${totalFin.toLocaleString()} درهم</div>
-      <div class="field"><b>المحصّل:</b> <span style="color:#1a9e5f;">${paidFin.toLocaleString()} درهم</span></div>
-      <div class="field"><b>المتبقي:</b> <span style="color:${totalFin-paidFin>0?'#c0392b':'#1a9e5f'};">${(totalFin-paidFin).toLocaleString()} درهم</span></div>
-    </div>
-  </div>`:''}
+
   ${c.notes?`<div class="section"><h3>📄 ملاحظات</h3><div style="line-height:1.8;">${c.notes}</div></div>`:''}
   ${(c.activityLog&&c.activityLog.length)?`<div class="section"><h3>📋 سجل حركة القضية</h3>
     <table><thead><tr><th>التاريخ</th><th>النوع</th><th>الوصف</th><th>التفاصيل</th><th>بواسطة</th></tr></thead><tbody>
-    ${[...(c.activityLog)].reverse().slice(0,50).map(e=>`<tr>
+    ${[...(c.activityLog)].reverse().slice(0,50).filter(e=>e.type!=='مالية').map(e=>`<tr>
       <td style="white-space:nowrap;font-size:11px;">${e.at?(new Date(e.at).toLocaleString('ar',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})):''}</td>
       <td><span style="background:#e3f0fb;color:#0f4c81;padding:1px 6px;border-radius:4px;font-size:10.5px;font-weight:700;">${e.type||''}</span></td>
       <td>${e.description||''}</td>
@@ -5250,12 +5287,7 @@ function _doSendWA(c, caseNum, firstClientName, waPhone){
     +(opponents.length?'<div style="font-weight:bold;color:#d4870a;font-size:11px;margin:5px 0 3px;">الخصوم:</div><table><thead><tr><th>الاسم</th><th>الصفة</th><th>رقم الهوية</th></tr></thead><tbody>'+oppRows+'</tbody></table>':'')
     +'</div>'
     +(hist.length?'<div class="sec"><div class="sec-t">🕐 مسار الحالات</div><table><thead><tr><th>الحالة</th><th>التاريخ</th><th>ملاحظة</th><th>بواسطة</th></tr></thead><tbody>'+histRows+'</tbody></table></div>':'')
-    +(fins.length?'<div class="sec"><div class="sec-t">💰 الملخص المالي</div><div class="grid">'
-      +(isAdminP&&c.agreedFees?'<div class="f"><b>الأتعاب المتفق عليها:</b> '+c.agreedFees.toLocaleString()+' درهم</div>':'')
-      +'<div class="f"><b>إجمالي الأتعاب:</b> '+totalFin.toLocaleString()+' درهم</div>'
-      +'<div class="f"><b>المحصّل:</b> '+paidFin.toLocaleString()+' درهم</div>'
-      +'<div class="f"><b>المتبقي:</b> '+(totalFin-paidFin).toLocaleString()+' درهم</div>'
-      +'</div></div>':'')
+    +''  /* المبالغ محصورة في تبويب المالية فقط */
     +'<div class="foot">مكتب شوق الكثيري للمحاماة والاستشارات القانونية — الإمارات العربية المتحدة</div>';
 
   const fullHtml='<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>'+caseNum+'</title><style>'+css+'</style></head><body>'+body+'</body></html>';
@@ -5901,6 +5933,33 @@ function hasPerm(p) {
 }
 
 function esc(s) { return String(s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── Shared dynamic modal helper ──
+function _openDynModal(title, bodyHtml, maxW) {
+  maxW = maxW || '600px';
+  let dm = document.getElementById('_dynModal');
+  if(!dm) {
+    dm = document.createElement('div');
+    dm.id = '_dynModal';
+    dm.className = 'overlay';
+    dm.style.zIndex = '9999';
+    const box = document.createElement('div');
+    box.className = 'modal-box';
+    box.id = '_dynBox';
+    box.style.cssText = 'max-height:90vh;overflow-y:auto;';
+    box.innerHTML = '<div class="modal-hdr"><h3 id="_dynTitle"></h3><button class="close-btn" onclick="_closeDynModal()">×</button></div><div id="_dynBody"></div>';
+    dm.appendChild(box);
+    document.body.appendChild(dm);
+  }
+  document.getElementById('_dynBox').style.maxWidth = maxW;
+  document.getElementById('_dynTitle').textContent = title;
+  document.getElementById('_dynBody').innerHTML = bodyHtml;
+  dm.style.display = 'flex';
+}
+function _closeDynModal() {
+  const dm = document.getElementById('_dynModal');
+  if(dm) dm.style.display = 'none';
+}
 
 // ══════════════════════════════════════════════════
 //  CASE ACTIVITY LOG — سجل حركة القضية
@@ -7204,7 +7263,9 @@ function renderAttPage() {
   // ── تنبيه جلسات الموظف ──
   renderEmpSessionAlert();
   // ── بطاقة التسويات والعهد ── تُستدعى دائماً لأي موظف
-  renderMyCustodySection();
+  // (lazy-loaded now via segment switch)
+  // ── badge الوثائق ──
+  updateMyDocsBadge();
 }
 
 function previewEmp() {
@@ -7883,6 +7944,200 @@ function openMonthlyAttDetail(yStr, mStr, filter) {
   }
 
   openM('monthlyAttDetailModal');
+}
+
+
+// ══════════════════════════════════════════════════════
+//  ATTENDANCE PAGE — SEGMENTED CONTROL
+// ══════════════════════════════════════════════════════
+function switchAttSeg(seg) {
+  ['presence','finance','docs'].forEach(s=>{
+    const btn = document.getElementById('attSeg-'+s);
+    const content = document.getElementById('attSeg-'+s+'-content');
+    if(btn) btn.classList.toggle('active', s===seg);
+    if(content) content.style.display = s===seg ? '' : 'none';
+  });
+  if(seg==='docs') renderMyDocs();
+  if(seg==='finance') { renderMyFinanceBalanceBox(CU.empId); renderMyCustodySection(); }
+}
+
+// ══════════════════════════════════════════════════════
+//  EMPLOYEE DOCUMENTS — UPLOAD & VIEW
+// ══════════════════════════════════════════════════════
+function openUploadMyDocModal() {
+  if(!CU.empId) return;
+  let html = `<div style="padding:4px;">
+    <div class="form-group">
+      <label>اسم الوثيقة <span class="req">*</span></label>
+      <input class="form-control" id="_udName" placeholder="مثال: إقامة، جواز سفر، وكالة...">
+    </div>
+    <div class="form-group">
+      <label>ملاحظة (اختياري)</label>
+      <input class="form-control" id="_udNote" placeholder="مثال: تنتهي في 2025">
+    </div>
+    <div class="form-group">
+      <label>الملف (صورة أو PDF) <span class="req">*</span></label>
+      <input type="file" class="form-control" id="_udFile" accept="image/*,.pdf" style="padding:6px;">
+    </div>
+    <div id="_udPreview" style="margin-top:8px;text-align:center;"></div>
+    <div class="btn-grp" style="margin-top:14px;">
+      <button class="btn bp" onclick="_saveMyDoc()">💾 رفع الوثيقة</button>
+      <button class="btn bw" onclick="_closeDynModal()">إلغاء</button>
+    </div>
+  </div>`;
+  _openDynModal('📎 رفع وثيقة شخصية', html, '480px');
+  // preview on select
+  document.getElementById('_udFile').onchange = function(){
+    const f=this.files[0]; if(!f) return;
+    const prev=document.getElementById('_udPreview');
+    if(f.type.startsWith('image/')){
+      const r=new FileReader(); r.onload=e=>{ prev.innerHTML=`<img src="${e.target.result}" style="max-width:180px;max-height:120px;border-radius:8px;border:1px solid var(--border);">`; }; r.readAsDataURL(f);
+    } else { prev.innerHTML=`<div style="font-size:12px;color:var(--success);">📄 ${esc(f.name)}</div>`; }
+  };
+}
+
+function _saveMyDoc() {
+  const name = document.getElementById('_udName').value.trim();
+  const note = document.getElementById('_udNote').value.trim();
+  const file = document.getElementById('_udFile').files[0];
+  if(!name){ toast('⚠️ أدخل اسم الوثيقة','warning'); return; }
+  if(!file){ toast('⚠️ اختر ملفاً','warning'); return; }
+  if(file.size > 5*1024*1024){ toast('⚠️ حجم الملف لا يتجاوز 5 ميغابايت','warning'); return; }
+  const reader = new FileReader();
+  reader.onload = function(e){
+    if(!S.empDocUploads) S.empDocUploads=[];
+    const emp = S.employees.find(x=>x.id===CU.empId);
+    S.empDocUploads.push({
+      id:uid(), empId:CU.empId, empName:emp?.name||CU.fullName,
+      name, note, data:e.target.result, type:file.type,
+      size:file.size, uploadedBy:CU.fullName, uploadedAt:new Date().toISOString()
+    });
+    save();
+    document.getElementById('_dynModal').style.display='none';
+    toast('✅ تم رفع الوثيقة بنجاح','success');
+    renderMyDocs();
+    // update badge
+    updateMyDocsBadge();
+  };
+  reader.readAsDataURL(file);
+}
+
+function updateMyDocsBadge() {
+  const badge = document.getElementById('myDocsCount');
+  if(!badge || !CU.empId) return;
+  const cnt = (S.empDocUploads||[]).filter(d=>d.empId===CU.empId).length;
+  badge.textContent = cnt;
+  badge.style.display = cnt>0 ? '' : 'none';
+}
+
+function renderMyDocs() {
+  const grid = document.getElementById('myDocsGrid');
+  if(!grid) return;
+  const isAdmin = (window.CU?.type==='admin') || hasPerm('ep_viewEmployees');
+  // show/hide admin section
+  const adminSec = document.getElementById('adminEmpDocsSection');
+  if(adminSec) adminSec.style.display = isAdmin ? '' : 'none';
+  if(isAdmin) renderAdminEmpDocs();
+
+  if(!CU.empId){ grid.innerHTML='<div style="color:var(--text-muted);font-size:13px;">سجّل دخولك كموظف أولاً.</div>'; return; }
+  const docs = (S.empDocUploads||[]).filter(d=>d.empId===CU.empId).sort((a,b)=>b.uploadedAt.localeCompare(a.uploadedAt));
+  if(!docs.length){
+    grid.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:32px;color:var(--text-muted);">
+      <div style="font-size:40px;margin-bottom:8px;">📭</div>
+      <div style="font-size:13px;">لا توجد وثائق مرفوعة بعد</div>
+      <button class="btn bp btn-sm" style="margin-top:10px;" onclick="openUploadMyDocModal()">➕ ارفع وثيقتك الأولى</button>
+    </div>`;
+    return;
+  }
+  grid.innerHTML = docs.map(d => {
+    const isImg = (d.type||'').startsWith('image/');
+    const ext = isImg ? '🖼️' : '📄';
+    const kb = Math.round((d.size||0)/1024);
+    const dateStr = d.uploadedAt ? new Date(d.uploadedAt).toLocaleDateString('ar',{year:'numeric',month:'short',day:'numeric'}) : '';
+    const preview = isImg ? `<img src="${d.data}" style="width:100%;height:90px;object-fit:cover;border-radius:8px;margin-bottom:6px;border:1px solid var(--border);">` : `<div style="background:var(--bg);border-radius:8px;height:60px;display:flex;align-items:center;justify-content:center;font-size:32px;margin-bottom:6px;">📄</div>`;
+    return `<div class="emp-doc-card">
+      ${preview}
+      <div class="emp-doc-name">${esc(d.name)}</div>
+      ${d.note?`<div class="emp-doc-meta">📝 ${esc(d.note)}</div>`:''}
+      <div class="emp-doc-meta">📅 ${dateStr} · ${kb} كيلوبايت</div>
+      <div style="display:flex;gap:6px;margin-top:4px;">
+        <button class="btn bg btn-sm" style="flex:1;font-size:11px;" onclick="_viewDoc('${d.id}')">👁️ عرض</button>
+        <button class="btn bd btn-sm" style="font-size:11px;" onclick="_deleteMyDoc('${d.id}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+  updateMyDocsBadge();
+}
+
+function _viewDoc(docId) {
+  const d = (S.empDocUploads||[]).find(x=>x.id===docId);
+  if(!d) return;
+  const isImg = (d.type||'').startsWith('image/');
+  const html = `<div style="text-align:center;padding:4px;">
+    <div style="font-weight:700;font-size:14px;color:var(--primary);margin-bottom:10px;">${esc(d.name)}</div>
+    ${isImg ? `<img src="${d.data}" style="max-width:100%;max-height:400px;border-radius:10px;border:1px solid var(--border);">` : `<a href="${d.data}" download="${esc(d.name)}.pdf" class="btn bp" style="margin:20px auto;display:inline-block;">📥 تحميل الملف</a>`}
+    ${d.note?`<div style="font-size:12px;color:var(--text-muted);margin-top:8px;">📝 ${esc(d.note)}</div>`:''}
+    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">رُفع بواسطة: ${esc(d.uploadedBy||'')} · ${d.uploadedAt?new Date(d.uploadedAt).toLocaleDateString('ar'):''}</div>
+  </div>`;
+  _openDynModal('📎 عرض الوثيقة', html, '560px');
+}
+
+function _deleteMyDoc(docId) {
+  const d = (S.empDocUploads||[]).find(x=>x.id===docId);
+  if(!d) return;
+  const isAdmin = (window.CU?.type==='admin') || hasPerm('ep_viewEmployees');
+  // Only owner or admin can delete
+  if(d.empId!==CU.empId && !isAdmin){ toast('⛔ غير مصرح لك بحذف هذه الوثيقة','warning'); return; }
+  if(!confirm('حذف وثيقة: '+d.name)) return;
+  S.empDocUploads = (S.empDocUploads||[]).filter(x=>x.id!==docId);
+  save(); renderMyDocs(); updateMyDocsBadge();
+  toast('🗑️ تم حذف الوثيقة','success');
+}
+
+// ── Admin: view all employees docs ──
+function renderAdminEmpDocs() {
+  const grid = document.getElementById('adminEmpDocsGrid');
+  const filterSel = document.getElementById('adminDocEmpFilter');
+  if(!grid) return;
+  // Rebuild filter options
+  if(filterSel){
+    const empIds = [...new Set((S.empDocUploads||[]).map(d=>d.empId))];
+    const current = filterSel.value;
+    filterSel.innerHTML = '<option value="all">كل الموظفين</option>' +
+      S.employees.filter(e=>!e.archived).map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('');
+    filterSel.value = current||'all';
+  }
+  const empFilter = filterSel?.value||'all';
+  const docs = (S.empDocUploads||[]).filter(d=>empFilter==='all'||d.empId===empFilter)
+    .sort((a,b)=>b.uploadedAt.localeCompare(a.uploadedAt));
+  if(!docs.length){
+    grid.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--text-muted);">
+      <div style="font-size:36px;margin-bottom:8px;">📂</div>
+      <div style="font-size:13px;">${empFilter==='all'?'لا توجد وثائق مرفوعة من الموظفين':'هذا الموظف لم يرفع وثائق بعد'}</div>
+    </div>`;
+    return;
+  }
+  grid.innerHTML = docs.map(d => {
+    const isImg = (d.type||'').startsWith('image/');
+    const kb = Math.round((d.size||0)/1024);
+    const dateStr = d.uploadedAt ? new Date(d.uploadedAt).toLocaleDateString('ar',{year:'numeric',month:'short',day:'numeric'}) : '';
+    const preview = isImg ? `<img src="${d.data}" style="width:100%;height:80px;object-fit:cover;border-radius:8px;margin-bottom:6px;border:1px solid var(--border);">` : `<div style="background:var(--bg);border-radius:8px;height:60px;display:flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:6px;">📄</div>`;
+    const empColor = '#'+Math.abs(d.empId.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%0xFFFFFF).toString(16).padStart(6,'0');
+    return `<div class="emp-doc-card">
+      ${preview}
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--primary);flex-shrink:0;"></div>
+        <div style="font-size:11px;font-weight:700;color:var(--primary);">${esc(d.empName||'')}</div>
+      </div>
+      <div class="emp-doc-name">${esc(d.name)}</div>
+      ${d.note?`<div class="emp-doc-meta">📝 ${esc(d.note)}</div>`:''}
+      <div class="emp-doc-meta">📅 ${dateStr} · ${kb} كيلوبايت</div>
+      <div style="display:flex;gap:6px;margin-top:4px;">
+        <button class="btn bg btn-sm" style="flex:1;font-size:11px;" onclick="_viewDoc('${d.id}')">👁️ عرض</button>
+        <button class="btn bd btn-sm" style="font-size:11px;" onclick="_deleteMyDoc('${d.id}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function renderMyAtt() {
@@ -13094,7 +13349,17 @@ function calcAttendanceDeductions(empId, month) {
   const isField = (emp?.attendanceType||'office') === 'field';
   const recs = (S.attendance||[]).filter(a=>a.empId===empId&&(a.date||'').startsWith(month));
   const settings = S.settings||{};
-  const workDays = getDaysInMonth(month).filter(d=>!isOffDay(d));
+  // ── تحديد أول يوم عمل فعلي: تاريخ إدخال الموظف في النظام ──
+  const createdAt = (emp?.createdAt||'').slice(0,10);
+  const monthStart = month+'-01';
+  // الغياب يُحسب فقط من يوم إدخال بيانات الموظف في النظام
+  const effectiveStart = (createdAt && createdAt > monthStart) ? createdAt : monthStart;
+  // إذا تاريخ الإدخال بعد نهاية الشهر → لا غياب لهذا الشهر
+  const monthEnd = getDaysInMonth(month).slice(-1)[0];
+  if(createdAt && createdAt > monthEnd) {
+    return {absenceDays:0, lateMins:0, unpaidLeaveDays:0};
+  }
+  let workDays = getDaysInMonth(month).filter(d=>!isOffDay(d) && d>=effectiveStart);
   let absenceDays=0, lateMins=0, unpaidLeaveDays=0;
   workDays.forEach(d=>{
     const rec=recs.find(a=>a.date===d);
@@ -13172,13 +13437,25 @@ function calcEmpPayroll(emp, month) {
   const finalAbsDed = absOverride ? 0 : absenceDeduction;
   const finalLateDed = lateOverride ? 0 : lateDeduction;
   const totalDeductions = finalAbsDed + finalLateDed + loanDed + manualDed;
-  const net = Math.max(0, base + bonuses - totalDeductions);
+  const net = Math.round(Math.max(0, base + bonuses - totalDeductions));
   // Check if already disbursed
   const run = (S.salaryRuns||[]).find(r=>r.empId===emp.id&&r.month===month);
   return {
-    base, dailyRate, absenceDays, lateMins, unpaidLeaveDays: unpaidLeaveDays||0, absenceDeduction:finalAbsDed,
-    lateDeduction:finalLateDed, loanDed, loanDetail, custodyBal, bonuses,
-    manualDed, totalDeductions, net, disbursed:!!run, run,
+    base: Math.round(base),
+    dailyRate,
+    absenceDays,
+    lateMins,
+    unpaidLeaveDays: unpaidLeaveDays||0,
+    absenceDeduction: Math.round(finalAbsDed),
+    lateDeduction: Math.round(finalLateDed),
+    loanDed: Math.round(loanDed),
+    loanDetail,
+    custodyBal: Math.round(custodyBal),
+    bonuses: Math.round(bonuses),
+    manualDed: Math.round(manualDed),
+    totalDeductions: Math.round(totalDeductions),
+    net,
+    disbursed:!!run, run,
     absOverride:!!absOverride, lateOverride:!!lateOverride
   };
 }
@@ -17985,14 +18262,7 @@ function showSubInstallments(subId) {
       <tbody>${rows}</tbody>
     </table></div>
   </div>`;
-  // Show in a dynamic modal
-  let dm = document.getElementById('_dynModal');
-  if(!dm){ dm=document.createElement('div'); dm.id='_dynModal'; dm.className='overlay'; dm.style.zIndex='9999';
-    dm.innerHTML='<div class="modal-box" id="_dynBox" style="max-width:700px;max-height:90vh;overflow-y:auto;"><div class="modal-hdr"><h3 id="_dynTitle"></h3><button class="close-btn" onclick="document.getElementById(\'_dynModal\').style.display=\'none\'">×</button></div><div id="_dynBody"></div></div>';
-    document.body.appendChild(dm); }
-  document.getElementById('_dynTitle').textContent='📋 تفاصيل الأقساط';
-  document.getElementById('_dynBody').innerHTML=html;
-  dm.style.display='flex';
+  _openDynModal('📋 تفاصيل الأقساط', html, '700px');
 }
 
 function delSubscription(id){
