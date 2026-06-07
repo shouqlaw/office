@@ -967,6 +967,7 @@ function getPrintHeader(subtitle) {
         </div>
       </div>
       <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">يمكنك رفع وثائقك الشخصية (إقامة، جواز سفر، وكالة، شهادات، إلخ). تظهر للإدارة في ملفك الوظيفي.</p>
+      <div id="_docExpiryBanner" style="display:none;"></div>
       <div id="myDocsGrid"></div>
     </div>
     <!-- وثائق الموظفين — للمدير فقط -->
@@ -1421,7 +1422,8 @@ function getPrintHeader(subtitle) {
       <div class="page-hdr-sub"><span>الرئيسية</span><span class="bc-sep">›</span><span class="bc-current">إدارة الموظفين</span></div>
     </div>
     <div class="page-hdr-right"><button class="btn bp" id="btnAddEmpMain" onclick="openEmpModal()">➕ إضافة موظف</button>
-      <button class="btn bs btn-sm" onclick="showPage('empEval')">⭐ التقييمات</button></div>
+      <button class="btn bs btn-sm" onclick="showPage('empEval')">⭐ التقييمات</button>
+      <button class="btn btn-sm" id="btnEmpDocsNav" onclick="showPage('empDocs')" style="background:var(--primary);color:#fff;" title="وثائق الموظفين">📁 الوثائق <span id="empDocsNavBadge" style="display:none;background:#fff;color:var(--primary);border-radius:10px;font-size:10px;padding:1px 6px;margin-right:2px;font-weight:700;"></span></button></div>
   </div>
   <!-- Filters row -->
   <div class="card" style="padding:10px 14px;margin-bottom:14px;">
@@ -1446,6 +1448,66 @@ function getPrintHeader(subtitle) {
   <div id="empKpiBar" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px;"></div>
   <div id="empExpWarn" class="mt12"></div>
   <div class="card mt12"><div id="empTable"></div></div>
+</div>
+
+<!-- ══════ PAGE: EMPLOYEE DOCUMENTS (Admin) ══════ -->
+<div class="page" id="page-empDocs">
+  <div class="page-hdr">
+    <div class="page-hdr-left">
+      <div class="page-hdr-title"><div class="page-hdr-icon">📁</div>وثائق الموظفين</div>
+      <div class="page-hdr-sub"><span>الرئيسية</span><span class="bc-sep">›</span><span class="bc-current">وثائق الموظفين</span></div>
+    </div>
+    <div class="page-hdr-right">
+      <button class="btn bw btn-sm" onclick="showPage('employees')">← الموظفون</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title" style="flex-wrap:wrap;gap:8px;">
+      <span style="font-size:14px;font-weight:700;color:var(--primary);">🗂️ وثائق الموظفين — عرض إداري</span>
+      <div class="btn-grp" style="flex-wrap:wrap;gap:6px;">
+        <select class="form-control" id="empDocsPageEmpFilter" style="width:200px;" onchange="renderEmpDocsPage()">
+          <option value="all">كل الموظفين</option>
+        </select>
+        <select class="form-control" id="empDocsPageTypeFilter" style="width:160px;" onchange="renderEmpDocsPage()">
+          <option value="all">كل الأنواع</option>
+          <option value="جواز سفر">🛂 جواز سفر</option>
+          <option value="إقامة">🏠 إقامة</option>
+          <option value="هوية وطنية">🪪 هوية وطنية</option>
+          <option value="رخصة قيادة">🚗 رخصة قيادة</option>
+          <option value="وكالة قانونية">⚖️ وكالة قانونية</option>
+          <option value="عقد عمل">📋 عقد عمل</option>
+          <option value="شهادة دراسية">🎓 شهادة دراسية</option>
+          <option value="شهادة خبرة">🏆 شهادة خبرة</option>
+          <option value="تأمين صحي">🏥 تأمين صحي</option>
+          <option value="بطاقة عمل">💼 بطاقة عمل</option>
+          <option value="أخرى">📎 أخرى</option>
+        </select>
+        <select class="form-control" id="empDocsPageStatusFilter" style="width:150px;" onchange="renderEmpDocsPage()">
+          <option value="all">كل الحالات</option>
+          <option value="expiring">⏰ تنتهي قريباً (30 يوم)</option>
+          <option value="expired">⛔ منتهية</option>
+          <option value="valid">✅ سارية</option>
+        </select>
+        <button class="btn bp btn-sm" onclick="renderEmpDocsPage()">🔄 تحديث</button>
+      </div>
+    </div>
+    <div id="empDocsPageStats" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:10px;background:var(--bg);border-radius:10px;"></div>
+    <div id="empDocsPageGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;"></div>
+  </div>
+  <!-- Admin upload doc for specific employee -->
+  <div class="card" style="margin-top:14px;">
+    <div class="card-title" style="flex-wrap:wrap;gap:8px;">
+      <span style="font-size:14px;font-weight:700;color:var(--primary);">📤 رفع وثيقة لموظف</span>
+    </div>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">يمكنك رفع وثيقة لموظف محدد وستظهر في ملفه الشخصي وتبويب وثائقي عنده.</p>
+    <div class="form-row">
+      <div class="form-group">
+        <label>اختر الموظف <span class="req">*</span></label>
+        <select class="form-control" id="adminUploadEmpSel"></select>
+      </div>
+    </div>
+    <button class="btn bp" onclick="openAdminUploadDocModal()">📎 رفع وثيقة للموظف المحدد</button>
+  </div>
 </div>
 
 <!-- ══════ PAGE: EMPLOYEE EVALUATIONS ══════ -->
@@ -7081,6 +7143,7 @@ function showPage(p) {
       archive: ()=>hasPerm('ep_viewArchive')||hasPerm('ep_superAdmin'),
       globalsearch: ()=>hasPerm('ep_globalSearch')||hasPerm('ep_superAdmin'),
       empEval: ()=>hasPerm('ep_viewEvaluations')||hasPerm('ep_addEvaluations')||hasPerm('ep_editEvaluations')||hasPerm('ep_superAdmin'),
+      empDocs: ()=>hasPerm('ep_viewEmployees')||hasPerm('ep_superAdmin'),
       calendar: ()=>hasPerm('ep_viewCases')||hasPerm('ep_addCases'),
     };
     if(empRestrictedPages[p] && !empRestrictedPages[p]()) {
@@ -7095,6 +7158,7 @@ function showPage(p) {
     clients:()=>{renderClients();renderLicBanner();},
     employees:()=>{renderEmps();renderEmpExpWarn();},
     empEval:()=>{ buildEvalFilters(); renderEvaluations(); },
+    empDocs:()=>{ renderEmpDocsPage(); updateEmpDocsNavBadge(); },
     reports:()=>{initRepMonth();},
     cases:()=>{renderCases();buildAllStatusSelects();},
     calendar:()=>{ _calDate=new Date(); renderCalendar(); },
@@ -7266,6 +7330,8 @@ function renderAttPage() {
   // (lazy-loaded now via segment switch)
   // ── badge الوثائق ──
   updateMyDocsBadge();
+  // ── تنبيه الوثائق المنتهية ──
+  checkDocExpiryAlerts();
 }
 
 function previewEmp() {
@@ -7618,19 +7684,25 @@ function renderEmpExcusePrevRequests() {
   if(!reqs.length){ el.innerHTML=''; return; }
   el.innerHTML = '<div style="font-weight:700;font-size:13px;margin-bottom:8px;color:var(--text-muted);">📋 طلباتي السابقة</div>' +
     reqs.map(r=>{
-      const stCls = r.status==='approved'?'b-ok':r.status==='rejected'?'b-off':'b-warn';
-      const stTxt = r.status==='approved'?'✅ مقبول':r.status==='rejected'?'❌ مرفوض':'⏳ قيد المراجعة';
-      const datesLabel = r.dates.map(d=>fmtDate(d)).join('، ');
-      return `<div style="background:var(--bg);border-radius:8px;padding:10px 12px;margin-bottom:6px;border:1px solid var(--border);">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
-          <div>
-            <div style="font-size:12px;font-weight:700;">${datesLabel}</div>
-            <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${esc(r.reason)}</div>
-            ${r.rejectReason?`<div style="font-size:11px;color:var(--danger);margin-top:2px;">سبب الرفض: ${esc(r.rejectReason)}</div>`:''}
-          </div>
-          <span class="badge ${stCls}" style="font-size:11px;">${stTxt}</span>
-        </div>
-      </div>`;
+      const stCls = r.status==='approved'?'b-ok':r.status==='rejected'?'b-off':r.status==='cancelled'?'':'b-warn';
+      const stTxt = r.status==='approved'?'✅ مقبول':r.status==='rejected'?'❌ مرفوض':r.status==='cancelled'?'🚫 ملغي':'⏳ قيد المراجعة';
+      const datesLabel = (r.dates||[]).map(d=>fmtDate(d)).join('، ');
+      const borderStyle = r.status==='pending' ? 'border-right:3px solid var(--warning);' : r.status==='cancelled'?'opacity:.6;':'';
+      return '<div style="background:var(--bg);border-radius:8px;padding:10px 12px;margin-bottom:6px;border:1px solid var(--border);'+borderStyle+'">'
+        +'<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:6px;">'
+        +'<div style="flex:1;">'
+        +'<div style="font-size:12px;font-weight:700;">'+datesLabel+'</div>'
+        +'<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">'+esc(r.reason)+'</div>'
+        +(r.rejectReason?'<div style="font-size:11px;color:var(--danger);margin-top:2px;">سبب الرفض: '+esc(r.rejectReason)+'</div>':'')
+        +'</div>'
+        +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;">'
+        +'<span class="badge '+stCls+'" style="font-size:11px;">'+stTxt+'</span>'
+        +(r.status==='pending'
+          ? '<button class="btn bd btn-sm" style="font-size:11px;padding:4px 10px;" onclick="cancelMyExcuseRequest('+r.id+')">✖ إلغاء الطلب</button>'
+          : '')
+        +'</div>'
+        +'</div>'
+        +'</div>';
     }).join('');
 }
 
@@ -7643,41 +7715,63 @@ function renderExcuseRequestsAdmin() {
     el.innerHTML='<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px;">لا توجد طلبات إعفاء</div>';
     return;
   }
+  // لا يُعرض الملغي من قِبل الموظف في واجهة الإدارة
   const pending  = all.filter(r=>r.status==='pending');
   const approved = all.filter(r=>r.status==='approved');
   const rejected = all.filter(r=>r.status==='rejected');
 
   const renderItem = r => {
+    const isPending = r.status==='pending';
     const stCls = r.status==='approved'?'b-ok':r.status==='rejected'?'b-off':'b-warn';
     const stTxt = r.status==='approved'?'✅ مقبول':r.status==='rejected'?'❌ مرفوض':'⏳ قيد المراجعة';
     const datesLabel = (r.dates||[]).map(d=>fmtDate(d)).join('، ');
-    return `<div style="background:var(--bg);border-radius:10px;padding:12px 14px;margin-bottom:8px;border:1px solid var(--border)${r.status==='pending'?';border-right:3px solid var(--warning)':''};">
-      <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;">
-        <div style="flex:1;">
-          <div style="font-weight:700;font-size:13px;">${esc(r.empName)} — <span style="color:var(--warning);">إعفاء غياب</span></div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">📅 ${datesLabel} <strong style="color:var(--text);">(${(r.dates||[]).length} أيام)</strong></div>
-          <div style="font-size:12px;margin-top:3px;">${esc(r.reason)}</div>
-          ${r.rejectReason?`<div style="font-size:11px;color:var(--danger);margin-top:2px;">سبب الرفض: ${esc(r.rejectReason)}</div>`:''}
-          <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${r.createdAt||''}</div>
-          ${r.decidedBy?`<div style="font-size:11px;color:${r.status==='approved'?'var(--success)':'var(--danger)'};">${r.status==='approved'?'وافق':'رفض'}: ${esc(r.decidedBy)} — ${r.decidedAt||''}</div>`:''}
-        </div>
-        <div style="display:flex;flex-direction:column;gap:6px;align-items:center;flex-shrink:0;">
-          <span class="badge ${stCls}">${stTxt}</span>
-          ${r.status==='pending'?`
-            <button class="btn bg btn-sm" onclick="approveExcuseRequest('${r.id}')" ${(CU.type!=='admin'&&CU.empId&&r.empId===CU.empId)?'disabled title="لا يمكنك الموافقة على طلبك الخاص" style="opacity:.4;cursor:not-allowed;"':''}>✅ قبول</button>
-            <button class="btn bd btn-sm" onclick="rejectExcuseRequest('${r.id}')" ${(CU.type!=='admin'&&CU.empId&&r.empId===CU.empId)?'disabled title="لا يمكنك رفض طلبك الخاص" style="opacity:.4;cursor:not-allowed;"':''}>❌ رفض</button>
-          `:''}
-          ${r.status==='approved'?`<button class="btn bw btn-sm" style="font-size:11px;" onclick="revokeExcuseRequest('${r.id}')">↩️ إلغاء</button>`:''}
-        </div>
-      </div>
-    </div>`;
+    return '<div style="background:var(--bg);border-radius:10px;padding:12px 14px;margin-bottom:8px;border:1px solid var(--border)'+(isPending?';border-right:3px solid var(--warning)':'')+'">'
+      +'<div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;">'
+      +'<div style="flex:1;">'
+      +'<div style="font-weight:700;font-size:13px;">'+esc(r.empName)+' — <span style="color:var(--warning);">إعفاء غياب</span></div>'
+      +'<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">📅 '+datesLabel+' <strong style="color:var(--text);">('+((r.dates||[]).length)+' أيام)</strong></div>'
+      +'<div style="font-size:12px;margin-top:3px;">'+esc(r.reason)+'</div>'
+      +(r.rejectReason?'<div style="font-size:11px;color:var(--danger);margin-top:2px;">سبب الرفض: '+esc(r.rejectReason)+'</div>':'')
+      +'<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">'+(r.createdAt ? new Date(r.createdAt).toLocaleString('ar',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '')+'</div>'
+      +(r.decidedBy?'<div style="font-size:11px;color:'+(r.status==='approved'?'var(--success)':'var(--danger)')+';">'+(r.status==='approved'?'✅ وافق':'❌ رفض')+': '+esc(r.decidedBy)+' — '+(r.decidedAt ? new Date(r.decidedAt).toLocaleString('ar',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '')+'</div>':'')
+      +'</div>'
+      +'<div style="display:flex;flex-direction:column;gap:6px;align-items:center;flex-shrink:0;">'
+      +'<span class="badge '+stCls+'">'+stTxt+'</span>'
+      +(isPending
+        ? '<button class="btn bg btn-sm" style="min-width:70px;" onclick="approveExcuseRequest('+r.id+')">✅ قبول</button>'
+          +'<button class="btn bd btn-sm" style="min-width:70px;" onclick="rejectExcuseRequest('+r.id+')">❌ رفض</button>'
+        : '')
+      +(r.status==='approved'
+        ? '<button class="btn bw btn-sm" style="font-size:11px;" onclick="revokeExcuseRequest('+r.id+')">↩️ إلغاء الموافقة</button>'
+        : '')
+      +'</div>'
+      +'</div>'
+      +'</div>';
   };
 
   const sections = [];
-  if(pending.length)  sections.push(`<div style="font-weight:700;color:var(--warning);margin-bottom:8px;">⏳ معلقة (${pending.length})</div>`+pending.map(renderItem).join(''));
-  if(approved.length) sections.push(`<div style="font-weight:700;color:var(--success);margin:10px 0 8px;font-size:13px;">✅ مقبولة (${approved.length})</div>`+approved.slice(0,10).map(renderItem).join(''));
-  if(rejected.length) sections.push(`<div style="font-weight:700;color:var(--text-muted);margin:10px 0 8px;font-size:13px;">❌ مرفوضة (${rejected.length})</div>`+rejected.slice(0,8).map(renderItem).join(''));
+  if(pending.length)  sections.push('<div style="font-weight:700;color:var(--warning);margin-bottom:8px;font-size:13px;">⏳ معلقة ('+pending.length+')</div>'+pending.map(renderItem).join(''));
+  if(approved.length) sections.push('<div style="font-weight:700;color:var(--success);margin:10px 0 8px;font-size:13px;">✅ مقبولة ('+approved.length+')</div>'+approved.slice(0,10).map(renderItem).join(''));
+  if(rejected.length) sections.push('<div style="font-weight:700;color:var(--text-muted);margin:10px 0 8px;font-size:13px;">❌ مرفوضة ('+rejected.length+')</div>'+rejected.slice(0,8).map(renderItem).join(''));
   el.innerHTML = sections.join('');
+}
+
+function cancelMyExcuseRequest(rid) {
+  const r = (S.excuseRequests||[]).find(x=>x.id===rid);
+  if(!r){ toast('⛔ الطلب غير موجود','error'); return; }
+  // الموظف يلغي طلبه فقط
+  if(r.empId !== CU.empId){ toast('⛔ لا يمكنك إلغاء هذا الطلب','error'); return; }
+  if(r.status !== 'pending'){ toast('⚠️ لا يمكن إلغاء طلب تمت معالجته','warning'); return; }
+  if(!confirm('إلغاء طلب الإعفاء؟ سيُحذف من قائمة الإدارة.')) return;
+  // احذف الطلب نهائياً من القائمة
+  S.excuseRequests = (S.excuseRequests||[]).filter(x=>x.id!==rid);
+  save();
+  toast('✅ تم إلغاء الطلب بنجاح','success');
+  // تحديث كل الأماكن التي تعرض الطلبات
+  if(typeof renderEmpExcusePrevRequests==='function') renderEmpExcusePrevRequests();
+  if(typeof renderExcuseRequestsAdmin==='function') renderExcuseRequestsAdmin();
+  if(typeof renderMonthlyCounterCards==='function') renderMonthlyCounterCards();
+  if(typeof renderNotifBadge==='function') renderNotifBadge();
 }
 
 function approveExcuseRequest(rid) {
@@ -7957,67 +8051,140 @@ function switchAttSeg(seg) {
     if(btn) btn.classList.toggle('active', s===seg);
     if(content) content.style.display = s===seg ? '' : 'none';
   });
-  if(seg==='docs') renderMyDocs();
+  if(seg==='docs'){ renderMyDocs(); checkDocExpiryAlerts(); }
   if(seg==='finance') { renderMyFinanceBalanceBox(CU.empId); renderMyCustodySection(); }
 }
 
 // ══════════════════════════════════════════════════════
 //  EMPLOYEE DOCUMENTS — UPLOAD & VIEW
 // ══════════════════════════════════════════════════════
-function openUploadMyDocModal() {
+function openUploadMyDocModal(editId) {
   if(!CU.empId) return;
-  let html = `<div style="padding:4px;">
-    <div class="form-group">
-      <label>اسم الوثيقة <span class="req">*</span></label>
-      <input class="form-control" id="_udName" placeholder="مثال: إقامة، جواز سفر، وكالة...">
-    </div>
-    <div class="form-group">
-      <label>ملاحظة (اختياري)</label>
-      <input class="form-control" id="_udNote" placeholder="مثال: تنتهي في 2025">
-    </div>
-    <div class="form-group">
-      <label>الملف (صورة أو PDF) <span class="req">*</span></label>
-      <input type="file" class="form-control" id="_udFile" accept="image/*,.pdf" style="padding:6px;">
-    </div>
-    <div id="_udPreview" style="margin-top:8px;text-align:center;"></div>
-    <div class="btn-grp" style="margin-top:14px;">
-      <button class="btn bp" onclick="_saveMyDoc()">💾 رفع الوثيقة</button>
-      <button class="btn bw" onclick="_closeDynModal()">إلغاء</button>
-    </div>
-  </div>`;
-  _openDynModal('📎 رفع وثيقة شخصية', html, '480px');
-  // preview on select
-  document.getElementById('_udFile').onchange = function(){
-    const f=this.files[0]; if(!f) return;
-    const prev=document.getElementById('_udPreview');
-    if(f.type.startsWith('image/')){
-      const r=new FileReader(); r.onload=e=>{ prev.innerHTML=`<img src="${e.target.result}" style="max-width:180px;max-height:120px;border-radius:8px;border:1px solid var(--border);">`; }; r.readAsDataURL(f);
-    } else { prev.innerHTML=`<div style="font-size:12px;color:var(--success);">📄 ${esc(f.name)}</div>`; }
-  };
+  const ed = editId ? (S.empDocUploads||[]).find(x=>x.id===editId) : null;
+  const docTypes = ['جواز سفر','إقامة','هوية وطنية','رخصة قيادة','وكالة قانونية','عقد عمل','شهادة دراسية','شهادة خبرة','تأمين صحي','بطاقة عمل','أخرى'];
+  const typeOpts = docTypes.map(t=>`<option value="${t}" ${ed&&ed.docType===t?'selected':''}>${t}</option>`).join('');
+  const html = '<div style="padding:4px;">'
+    +'<input type="hidden" id="_udEditId" value="'+(editId||'')+'">'
+    +'<div class="form-group">'
+    +'<label>نوع الوثيقة <span class="req">*</span></label>'
+    +'<select class="form-control" id="_udType"><option value="">— اختر النوع —</option>'+typeOpts+'</select>'
+    +'</div>'
+    +'<div class="fr" style="gap:12px;">'
+    +'<div class="form-group" style="flex:1;">'
+    +'<label>تاريخ الإصدار</label>'
+    +'<input class="form-control" type="date" id="_udIssue" value="'+(ed&&ed.issueDate||'')+'" max="'+today()+'">'
+    +'</div>'
+    +'<div class="form-group" style="flex:1;">'
+    +'<label>تاريخ الانتهاء</label>'
+    +'<input class="form-control" type="date" id="_udExpiry" value="'+(ed&&ed.expiryDate||'')+'" oninput="_udExpiryHint()">'
+    +'</div>'
+    +'</div>'
+    +'<div id="_udExpiryHint" style="font-size:11px;margin:-8px 0 10px;padding:6px 10px;border-radius:8px;display:none;"></div>'
+    +'<div class="form-group">'
+    +'<label>ملاحظة (اختياري)</label>'
+    +'<input class="form-control" id="_udNote" placeholder="أي ملاحظة إضافية..." value="'+(ed&&ed.note||'')+'">'
+    +'</div>'
+    +(ed ? '' :
+      '<div class="form-group">'
+      +'<label>الملف (صورة أو PDF) <span class="req">*</span></label>'
+      +'<input type="file" class="form-control" id="_udFile" accept="image/*,.pdf" style="padding:6px;">'
+      +'</div>'
+      +'<div id="_udPreview" style="margin-top:8px;text-align:center;"></div>'
+    )
+    +'<div class="btn-grp" style="margin-top:14px;">'
+    +'<button class="btn bp" onclick="_saveMyDoc()">💾 '+(ed?'تحديث الوثيقة':'رفع الوثيقة')+'</button>'
+    +'<button class="btn bw" onclick="_closeDynModal()">إلغاء</button>'
+    +'</div>'
+    +'</div>';
+  _openDynModal((ed?'✏️ تعديل وثيقة':'📎 رفع وثيقة شخصية'), html, '500px');
+  if(!ed){
+    document.getElementById('_udFile').onchange = function(){
+      const f=this.files[0]; if(!f) return;
+      const prev=document.getElementById('_udPreview');
+      if(f.type.startsWith('image/')){
+        const r=new FileReader();
+        r.onload=function(ev){ prev.innerHTML='<img src="'+ev.target.result+'" style="max-width:180px;max-height:120px;border-radius:8px;border:1px solid var(--border);">'; };
+        r.readAsDataURL(f);
+      } else { prev.innerHTML='<div style="font-size:12px;color:var(--success);">📄 '+esc(f.name)+'</div>'; }
+    };
+  }
+  // trigger hint if existing expiry date
+  if(ed && ed.expiryDate) _udExpiryHint();
+}
+
+function _udExpiryHint() {
+  const val = document.getElementById('_udExpiry')&&document.getElementById('_udExpiry').value;
+  const box = document.getElementById('_udExpiryHint');
+  if(!box) return;
+  if(!val){ box.style.display='none'; return; }
+  const exp = new Date(val);
+  const now = new Date();
+  const diffDays = Math.round((exp-now)/(1000*60*60*24));
+  if(diffDays < 0){
+    box.style.cssText='font-size:11px;margin:-8px 0 10px;padding:6px 10px;border-radius:8px;display:block;background:#fff0f0;color:var(--danger);';
+    box.textContent='⚠️ هذه الوثيقة منتهية منذ '+Math.abs(diffDays)+' يوم';
+  } else if(diffDays <= 30){
+    box.style.cssText='font-size:11px;margin:-8px 0 10px;padding:6px 10px;border-radius:8px;display:block;background:#fff8e1;color:#e65c00;';
+    box.textContent='⏰ تنتهي خلال '+diffDays+' يوم — سيصدر تنبيه للموظف والإدارة';
+  } else {
+    box.style.cssText='font-size:11px;margin:-8px 0 10px;padding:6px 10px;border-radius:8px;display:block;background:#f0fff4;color:var(--success);';
+    box.textContent='✅ سارية المفعول — '+diffDays+' يوم متبقي';
+  }
 }
 
 function _saveMyDoc() {
-  const name = document.getElementById('_udName').value.trim();
+  const editId = document.getElementById('_udEditId')&&document.getElementById('_udEditId').value;
+  const docType = document.getElementById('_udType').value;
+  const issueDate = document.getElementById('_udIssue').value;
+  const expiryDate = document.getElementById('_udExpiry').value;
   const note = document.getElementById('_udNote').value.trim();
-  const file = document.getElementById('_udFile').files[0];
-  if(!name){ toast('⚠️ أدخل اسم الوثيقة','warning'); return; }
+  if(!docType){ toast('⚠️ اختر نوع الوثيقة','warning'); return; }
+  if(editId){
+    // update only metadata
+    const d = (S.empDocUploads||[]).find(x=>x.id===editId);
+    if(d){ Object.assign(d,{docType,issueDate,expiryDate,note,updatedAt:new Date().toISOString()}); }
+    save(); _closeDynModal();
+    toast('✅ تم تحديث بيانات الوثيقة','success');
+    renderMyDocs(); renderAdminEmpDocs&&renderAdminEmpDocs();
+    return;
+  }
+  const file = document.getElementById('_udFile')&&document.getElementById('_udFile').files[0];
   if(!file){ toast('⚠️ اختر ملفاً','warning'); return; }
   if(file.size > 5*1024*1024){ toast('⚠️ حجم الملف لا يتجاوز 5 ميغابايت','warning'); return; }
   const reader = new FileReader();
   reader.onload = function(e){
     if(!S.empDocUploads) S.empDocUploads=[];
     const emp = S.employees.find(x=>x.id===CU.empId);
-    S.empDocUploads.push({
+    const newDoc = {
       id:uid(), empId:CU.empId, empName:emp?.name||CU.fullName,
-      name, note, data:e.target.result, type:file.type,
+      docType, issueDate, expiryDate, note,
+      data:e.target.result, type:file.type,
       size:file.size, uploadedBy:CU.fullName, uploadedAt:new Date().toISOString()
-    });
-    save();
-    document.getElementById('_dynModal').style.display='none';
-    toast('✅ تم رفع الوثيقة بنجاح','success');
-    renderMyDocs();
-    // update badge
-    updateMyDocsBadge();
+    };
+    S.empDocUploads.push(newDoc);
+    // ── مزامنة مع وثائق ملف الموظف (تظهر عند الأدمن في بيانات الموظف) ──
+    if(emp) {
+      if(!emp.documents) emp.documents = [];
+      // أضف فقط إذا لم تكن موجودة مسبقاً بنفس المعرّف
+      if(!emp.documents.some(d=>d.id===newDoc.id)) {
+        emp.documents.push({
+          id: newDoc.id,
+          name: docType,
+          number: '',
+          expiry: expiryDate || '',
+          note: note,
+          uploadedAt: newDoc.uploadedAt
+        });
+      }
+    }
+    save(); _closeDynModal();
+    toast('✅ تم رفع الوثيقة بنجاح — ظاهرة في ملفك وفي سجل الإدارة','success');
+    renderMyDocs(); updateMyDocsBadge();
+    renderAdminEmpDocs&&renderAdminEmpDocs();
+    if(typeof updateEmpDocsNavBadge==='function') updateEmpDocsNavBadge();
+    if(typeof renderEmpDocsPage==='function'&&document.getElementById('page-empDocs')?.classList.contains('active')) renderEmpDocsPage();
+    // check expiry alerts immediately
+    checkDocExpiryAlerts();
   };
   reader.readAsDataURL(file);
 }
@@ -8030,67 +8197,113 @@ function updateMyDocsBadge() {
   badge.style.display = cnt>0 ? '' : 'none';
 }
 
+function _docExpiryInfo(expiryDate) {
+  if(!expiryDate) return {badge:'', cls:'', days:null};
+  const diffDays = Math.round((new Date(expiryDate)-new Date())/(1000*60*60*24));
+  if(diffDays < 0)  return {badge:'⛔ منتهية', cls:'b-off',  days:diffDays};
+  if(diffDays <= 7)  return {badge:'🚨 تنتهي قريباً', cls:'b-off',  days:diffDays};
+  if(diffDays <= 30) return {badge:'⏰ '+diffDays+' يوم', cls:'b-warn', days:diffDays};
+  return {badge:'✅ سارية', cls:'b-ok', days:diffDays};
+}
+
+function _docTypeIcon(t) {
+  const m={'جواز سفر':'🛂','إقامة':'🏠','هوية وطنية':'🪪','رخصة قيادة':'🚗','وكالة قانونية':'⚖️','عقد عمل':'📋','شهادة دراسية':'🎓','شهادة خبرة':'🏆','تأمين صحي':'🏥','بطاقة عمل':'💼','أخرى':'📎'};
+  return m[t]||'📄';
+}
+
 function renderMyDocs() {
   const grid = document.getElementById('myDocsGrid');
   if(!grid) return;
   const isAdmin = (window.CU?.type==='admin') || hasPerm('ep_viewEmployees');
-  // show/hide admin section
   const adminSec = document.getElementById('adminEmpDocsSection');
   if(adminSec) adminSec.style.display = isAdmin ? '' : 'none';
   if(isAdmin) renderAdminEmpDocs();
-
   if(!CU.empId){ grid.innerHTML='<div style="color:var(--text-muted);font-size:13px;">سجّل دخولك كموظف أولاً.</div>'; return; }
-  const docs = (S.empDocUploads||[]).filter(d=>d.empId===CU.empId).sort((a,b)=>b.uploadedAt.localeCompare(a.uploadedAt));
+  const docs = (S.empDocUploads||[]).filter(d=>d.empId===CU.empId).sort((a,b)=>{
+    // Sort: expiring soon first, then by upload date
+    const da = a.expiryDate||'9999'; const db = b.expiryDate||'9999';
+    return da.localeCompare(db);
+  });
   if(!docs.length){
-    grid.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:32px;color:var(--text-muted);">
-      <div style="font-size:40px;margin-bottom:8px;">📭</div>
-      <div style="font-size:13px;">لا توجد وثائق مرفوعة بعد</div>
-      <button class="btn bp btn-sm" style="margin-top:10px;" onclick="openUploadMyDocModal()">➕ ارفع وثيقتك الأولى</button>
-    </div>`;
+    grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:32px;color:var(--text-muted);"><div style="font-size:40px;margin-bottom:8px;">📭</div><div style="font-size:13px;">لا توجد وثائق مرفوعة بعد</div><button class="btn bp btn-sm" style="margin-top:10px;" onclick="openUploadMyDocModal()">➕ ارفع وثيقتك الأولى</button></div>';
     return;
   }
   grid.innerHTML = docs.map(d => {
     const isImg = (d.type||'').startsWith('image/');
-    const ext = isImg ? '🖼️' : '📄';
     const kb = Math.round((d.size||0)/1024);
-    const dateStr = d.uploadedAt ? new Date(d.uploadedAt).toLocaleDateString('ar',{year:'numeric',month:'short',day:'numeric'}) : '';
-    const preview = isImg ? `<img src="${d.data}" style="width:100%;height:90px;object-fit:cover;border-radius:8px;margin-bottom:6px;border:1px solid var(--border);">` : `<div style="background:var(--bg);border-radius:8px;height:60px;display:flex;align-items:center;justify-content:center;font-size:32px;margin-bottom:6px;">📄</div>`;
-    return `<div class="emp-doc-card">
-      ${preview}
-      <div class="emp-doc-name">${esc(d.name)}</div>
-      ${d.note?`<div class="emp-doc-meta">📝 ${esc(d.note)}</div>`:''}
-      <div class="emp-doc-meta">📅 ${dateStr} · ${kb} كيلوبايت</div>
-      <div style="display:flex;gap:6px;margin-top:4px;">
-        <button class="btn bg btn-sm" style="flex:1;font-size:11px;" onclick="_viewDoc('${d.id}')">👁️ عرض</button>
-        <button class="btn bd btn-sm" style="font-size:11px;" onclick="_deleteMyDoc('${d.id}')">🗑️</button>
-      </div>
-    </div>`;
+    const icon = _docTypeIcon(d.docType||d.name);
+    const exp = _docExpiryInfo(d.expiryDate);
+    const uploadDate = d.uploadedAt ? new Date(d.uploadedAt).toLocaleDateString('ar',{year:'numeric',month:'short',day:'numeric'}) : '';
+    const expiryFmt = d.expiryDate ? new Date(d.expiryDate).toLocaleDateString('ar',{year:'numeric',month:'short',day:'numeric'}) : '';
+    const issueFmt  = d.issueDate  ? new Date(d.issueDate).toLocaleDateString('ar',{year:'numeric',month:'short',day:'numeric'})  : '';
+    const preview = isImg
+      ? '<img src="'+d.data+'" style="width:100%;height:85px;object-fit:cover;border-radius:8px;margin-bottom:6px;border:1px solid var(--border);">'
+      : '<div style="background:var(--bg);border-radius:8px;height:70px;display:flex;align-items:center;justify-content:center;font-size:36px;margin-bottom:6px;">'+icon+'</div>';
+    const borderCol = exp.days!==null && exp.days<=30 ? (exp.days<0?'var(--danger)':'var(--warning)') : 'var(--border)';
+    return '<div class="emp-doc-card" style="border-color:'+borderCol+';">'
+      +preview
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">'
+      +'<div class="emp-doc-name" style="font-size:13px;">'+icon+' '+esc(d.docType||d.name)+'</div>'
+      +(exp.badge ? '<span class="badge '+exp.cls+'" style="font-size:9px;">'+exp.badge+'</span>' : '')
+      +'</div>'
+      +(issueFmt   ? '<div class="emp-doc-meta">📅 إصدار: '+issueFmt+'</div>' : '')
+      +(expiryFmt  ? '<div class="emp-doc-meta" style="font-weight:700;color:'+(exp.days!==null&&exp.days<=30?'var(--danger)':'var(--text-muted)')+';">⏳ انتهاء: '+expiryFmt+'</div>' : '')
+      +(d.note     ? '<div class="emp-doc-meta">📝 '+esc(d.note)+'</div>' : '')
+      +'<div class="emp-doc-meta" style="margin-top:2px;">رُفع: '+uploadDate+' · '+kb+' كيلوبايت</div>'
+      +'<div style="display:flex;gap:5px;margin-top:6px;">'
+      +'<button class="btn bg btn-sm" style="flex:1;font-size:11px;" onclick="_viewDoc(\''+d.id+'\')">👁️ عرض</button>'
+      +'<button class="btn bi btn-sm" style="font-size:11px;" onclick="openUploadMyDocModal(\''+d.id+'\')">✏️</button>'
+      +'<button class="btn bd btn-sm" style="font-size:11px;" onclick="_deleteMyDoc(\''+d.id+'\')">🗑️</button>'
+      +'</div>'
+      +'</div>';
   }).join('');
   updateMyDocsBadge();
 }
 
 function _viewDoc(docId) {
-  const d = (S.empDocUploads||[]).find(x=>x.id===docId);
+  const d = (S.empDocUploads||[]).find(x=>String(x.id)===String(docId));
   if(!d) return;
   const isImg = (d.type||'').startsWith('image/');
-  const html = `<div style="text-align:center;padding:4px;">
-    <div style="font-weight:700;font-size:14px;color:var(--primary);margin-bottom:10px;">${esc(d.name)}</div>
-    ${isImg ? `<img src="${d.data}" style="max-width:100%;max-height:400px;border-radius:10px;border:1px solid var(--border);">` : `<a href="${d.data}" download="${esc(d.name)}.pdf" class="btn bp" style="margin:20px auto;display:inline-block;">📥 تحميل الملف</a>`}
-    ${d.note?`<div style="font-size:12px;color:var(--text-muted);margin-top:8px;">📝 ${esc(d.note)}</div>`:''}
-    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">رُفع بواسطة: ${esc(d.uploadedBy||'')} · ${d.uploadedAt?new Date(d.uploadedAt).toLocaleDateString('ar'):''}</div>
-  </div>`;
-  _openDynModal('📎 عرض الوثيقة', html, '560px');
+  const exp = _docExpiryInfo(d.expiryDate);
+  const icon = _docTypeIcon(d.docType||d.name);
+  const fmt = dt => dt ? new Date(dt).toLocaleDateString('ar',{year:'numeric',month:'long',day:'numeric'}) : '—';
+  const html = '<div style="padding:4px;">'
+    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">'
+    +'<div style="font-size:36px;">'+icon+'</div>'
+    +'<div><div style="font-weight:700;font-size:15px;color:var(--primary);">'+esc(d.docType||d.name)+'</div>'
+    +(exp.badge ? '<span class="badge '+exp.cls+'" style="font-size:10px;">'+exp.badge+'</span>' : '')
+    +'</div></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">'
+    +'<div style="background:var(--bg);border-radius:8px;padding:8px 12px;"><div style="font-size:10px;color:var(--text-muted);">تاريخ الإصدار</div><div style="font-weight:700;font-size:12px;">'+fmt(d.issueDate)+'</div></div>'
+    +'<div style="background:'+(exp.days!==null&&exp.days<=30?'#fff8e1':'var(--bg)')+';border-radius:8px;padding:8px 12px;"><div style="font-size:10px;color:var(--text-muted);">تاريخ الانتهاء</div><div style="font-weight:700;font-size:12px;color:'+(exp.days!==null&&exp.days<=30?'var(--danger)':'inherit')+';">'+fmt(d.expiryDate)+'</div></div>'
+    +'</div>'
+    +(isImg
+      ? '<div style="text-align:center;"><img src="'+d.data+'" style="max-width:100%;max-height:360px;border-radius:10px;border:1px solid var(--border);"></div>'
+      : '<div style="text-align:center;padding:20px;"><a href="'+d.data+'" download="'+esc(d.docType||d.name)+'.pdf" class="btn bp">📥 تحميل ملف PDF</a></div>'
+    )
+    +(d.note ? '<div style="font-size:12px;color:var(--text-muted);margin-top:10px;padding:8px;background:var(--bg);border-radius:8px;">📝 '+esc(d.note)+'</div>' : '')
+    +'<div style="font-size:11px;color:var(--text-muted);margin-top:8px;text-align:center;">رُفع بواسطة: '+esc(d.uploadedBy||'')+' · '+fmt(d.uploadedAt)+'</div>'
+    +'</div>';
+  _openDynModal('📎 '+esc(d.docType||'عرض الوثيقة'), html, '560px');
 }
 
 function _deleteMyDoc(docId) {
-  const d = (S.empDocUploads||[]).find(x=>x.id===docId);
+  const d = (S.empDocUploads||[]).find(x=>String(x.id)===String(docId));
   if(!d) return;
   const isAdmin = (window.CU?.type==='admin') || hasPerm('ep_viewEmployees');
   // Only owner or admin can delete
-  if(d.empId!==CU.empId && !isAdmin){ toast('⛔ غير مصرح لك بحذف هذه الوثيقة','warning'); return; }
-  if(!confirm('حذف وثيقة: '+d.name)) return;
-  S.empDocUploads = (S.empDocUploads||[]).filter(x=>x.id!==docId);
-  save(); renderMyDocs(); updateMyDocsBadge();
+  if(!isAdmin && d.empId!==CU.empId){ toast('⛔ غير مصرح لك بحذف هذه الوثيقة','warning'); return; }
+  if(!confirm('حذف وثيقة: '+(d.docType||d.name)+'؟')) return;
+  S.empDocUploads = (S.empDocUploads||[]).filter(x=>String(x.id)!==String(docId));
+  // مزامنة مع وثائق الموظف
+  const emp = (S.employees||[]).find(e=>e.id===d.empId);
+  if(emp && emp.documents) emp.documents = emp.documents.filter(x=>String(x.id)!==String(docId));
+  save();
+  if(typeof renderMyDocs==='function') renderMyDocs();
+  if(typeof updateMyDocsBadge==='function') updateMyDocsBadge();
+  if(typeof renderAdminEmpDocs==='function') renderAdminEmpDocs();
+  if(typeof updateEmpDocsNavBadge==='function') updateEmpDocsNavBadge();
+  if(typeof renderEmpDocsPage==='function'&&document.getElementById('page-empDocs')?.classList.contains('active')) renderEmpDocsPage();
   toast('🗑️ تم حذف الوثيقة','success');
 }
 
@@ -8099,45 +8312,283 @@ function renderAdminEmpDocs() {
   const grid = document.getElementById('adminEmpDocsGrid');
   const filterSel = document.getElementById('adminDocEmpFilter');
   if(!grid) return;
-  // Rebuild filter options
   if(filterSel){
-    const empIds = [...new Set((S.empDocUploads||[]).map(d=>d.empId))];
     const current = filterSel.value;
-    filterSel.innerHTML = '<option value="all">كل الموظفين</option>' +
-      S.employees.filter(e=>!e.archived).map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('');
+    filterSel.innerHTML = '<option value="all">كل الموظفين</option>'
+      + S.employees.filter(e=>!e.archived).map(e=>'<option value="'+e.id+'">'+esc(e.name)+'</option>').join('');
     filterSel.value = current||'all';
   }
-  const empFilter = filterSel?.value||'all';
+  const empFilter = filterSel ? filterSel.value : 'all';
+  // Sort: expiring soon first
   const docs = (S.empDocUploads||[]).filter(d=>empFilter==='all'||d.empId===empFilter)
-    .sort((a,b)=>b.uploadedAt.localeCompare(a.uploadedAt));
+    .sort((a,b)=>{ const da=a.expiryDate||'9999'; const db=b.expiryDate||'9999'; return da.localeCompare(db); });
   if(!docs.length){
-    grid.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--text-muted);">
-      <div style="font-size:36px;margin-bottom:8px;">📂</div>
-      <div style="font-size:13px;">${empFilter==='all'?'لا توجد وثائق مرفوعة من الموظفين':'هذا الموظف لم يرفع وثائق بعد'}</div>
-    </div>`;
+    grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--text-muted);"><div style="font-size:36px;margin-bottom:8px;">📂</div><div style="font-size:13px;">'+(empFilter==='all'?'لا توجد وثائق مرفوعة من الموظفين':'هذا الموظف لم يرفع وثائق بعد')+'</div></div>';
     return;
   }
+  const fmt = dt => dt ? new Date(dt).toLocaleDateString('ar',{year:'numeric',month:'short',day:'numeric'}) : '—';
   grid.innerHTML = docs.map(d => {
     const isImg = (d.type||'').startsWith('image/');
     const kb = Math.round((d.size||0)/1024);
-    const dateStr = d.uploadedAt ? new Date(d.uploadedAt).toLocaleDateString('ar',{year:'numeric',month:'short',day:'numeric'}) : '';
-    const preview = isImg ? `<img src="${d.data}" style="width:100%;height:80px;object-fit:cover;border-radius:8px;margin-bottom:6px;border:1px solid var(--border);">` : `<div style="background:var(--bg);border-radius:8px;height:60px;display:flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:6px;">📄</div>`;
-    const empColor = '#'+Math.abs(d.empId.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%0xFFFFFF).toString(16).padStart(6,'0');
-    return `<div class="emp-doc-card">
-      ${preview}
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
-        <div style="width:8px;height:8px;border-radius:50%;background:var(--primary);flex-shrink:0;"></div>
-        <div style="font-size:11px;font-weight:700;color:var(--primary);">${esc(d.empName||'')}</div>
-      </div>
-      <div class="emp-doc-name">${esc(d.name)}</div>
-      ${d.note?`<div class="emp-doc-meta">📝 ${esc(d.note)}</div>`:''}
-      <div class="emp-doc-meta">📅 ${dateStr} · ${kb} كيلوبايت</div>
-      <div style="display:flex;gap:6px;margin-top:4px;">
-        <button class="btn bg btn-sm" style="flex:1;font-size:11px;" onclick="_viewDoc('${d.id}')">👁️ عرض</button>
-        <button class="btn bd btn-sm" style="font-size:11px;" onclick="_deleteMyDoc('${d.id}')">🗑️</button>
-      </div>
-    </div>`;
+    const icon = _docTypeIcon(d.docType||d.name);
+    const exp = _docExpiryInfo(d.expiryDate);
+    const borderCol = exp.days!==null && exp.days<=30 ? (exp.days<0?'var(--danger)':'var(--warning)') : 'var(--border)';
+    const preview = isImg
+      ? '<img src="'+d.data+'" style="width:100%;height:75px;object-fit:cover;border-radius:8px;margin-bottom:6px;border:1px solid var(--border);">'
+      : '<div style="background:var(--bg);border-radius:8px;height:60px;display:flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:6px;">'+icon+'</div>';
+    return '<div class="emp-doc-card" style="border-color:'+borderCol+';">'
+      +preview
+      +'<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">'
+      +'<div style="width:7px;height:7px;border-radius:50%;background:var(--primary);flex-shrink:0;"></div>'
+      +'<div style="font-size:11px;font-weight:700;color:var(--primary);">'+esc(d.empName||'')+'</div>'
+      +(exp.badge ? '<span class="badge '+exp.cls+'" style="font-size:9px;margin-right:auto;">'+exp.badge+'</span>' : '')
+      +'</div>'
+      +'<div class="emp-doc-name" style="font-size:12px;">'+icon+' '+esc(d.docType||d.name)+'</div>'
+      +(d.issueDate  ? '<div class="emp-doc-meta">📅 إصدار: '+fmt(d.issueDate)+'</div>' : '')
+      +(d.expiryDate ? '<div class="emp-doc-meta" style="font-weight:'+(exp.days!==null&&exp.days<=30?'700':'400')+';color:'+(exp.days!==null&&exp.days<=30?'var(--danger)':'var(--text-muted)')+';">⏳ انتهاء: '+fmt(d.expiryDate)+'</div>' : '')
+      +(d.note ? '<div class="emp-doc-meta">📝 '+esc(d.note)+'</div>' : '')
+      +'<div class="emp-doc-meta">رُفع: '+fmt(d.uploadedAt)+' · '+kb+' كيلو</div>'
+      +'<div style="display:flex;gap:5px;margin-top:6px;">'
+      +'<button class="btn bg btn-sm" style="flex:1;font-size:11px;" onclick="_viewDoc(\''+d.id+'\')">👁️ عرض</button>'
+      +'<button class="btn bd btn-sm" style="font-size:11px;" onclick="_deleteMyDoc(\''+d.id+'\')">🗑️ مسح</button>'
+      +'</div>'
+      +'</div>';
   }).join('');
+  if(typeof updateEmpDocsNavBadge==='function') updateEmpDocsNavBadge();
+}
+
+// ══════════════════════════════════════════════════════
+//  EMPLOYEE DOCUMENTS PAGE (Admin)
+// ══════════════════════════════════════════════════════
+function renderEmpDocsPage() {
+  const grid    = document.getElementById('empDocsPageGrid');
+  const stats   = document.getElementById('empDocsPageStats');
+  const empSel  = document.getElementById('empDocsPageEmpFilter');
+  const typeSel = document.getElementById('empDocsPageTypeFilter');
+  const statSel = document.getElementById('empDocsPageStatusFilter');
+  const upSel   = document.getElementById('adminUploadEmpSel');
+  if(!grid) return;
+
+  // Populate employee filter dropdowns
+  const activeEmps = (S.employees||[]).filter(e=>!e.archived);
+  if(empSel){
+    const cur = empSel.value;
+    empSel.innerHTML = '<option value="all">كل الموظفين</option>'
+      + activeEmps.map(e=>'<option value="'+e.id+'">'+esc(e.name)+'</option>').join('');
+    empSel.value = cur||'all';
+  }
+  if(upSel){
+    const cur2 = upSel.value;
+    upSel.innerHTML = '<option value="">-- اختر موظفاً --</option>'
+      + activeEmps.map(e=>'<option value="'+e.id+'">'+esc(e.name)+'</option>').join('');
+    upSel.value = cur2||'';
+  }
+
+  const empFilter  = empSel  ? empSel.value  : 'all';
+  const typeFilter = typeSel ? typeSel.value : 'all';
+  const statFilter = statSel ? statSel.value : 'all';
+
+  let docs = (S.empDocUploads||[]).filter(d => {
+    if(empFilter!=='all' && d.empId!==empFilter) return false;
+    if(typeFilter!=='all' && (d.docType||d.name)!==typeFilter) return false;
+    if(statFilter!=='all'){
+      const exp = _docExpiryInfo(d.expiryDate);
+      if(statFilter==='expiring' && !(exp.days!==null && exp.days>=0 && exp.days<=30)) return false;
+      if(statFilter==='expired'  && !(exp.days!==null && exp.days<0)) return false;
+      if(statFilter==='valid'    && !(exp.days===null || exp.days>30)) return false;
+    }
+    return true;
+  }).sort((a,b)=>{ const da=a.expiryDate||'9999'; const db=b.expiryDate||'9999'; return da.localeCompare(db); });
+
+  // Stats bar
+  if(stats){
+    const all  = (S.empDocUploads||[]).length;
+    const exp  = (S.empDocUploads||[]).filter(d=>{const e=_docExpiryInfo(d.expiryDate);return e.days!==null&&e.days<0;}).length;
+    const soon = (S.empDocUploads||[]).filter(d=>{const e=_docExpiryInfo(d.expiryDate);return e.days!==null&&e.days>=0&&e.days<=30;}).length;
+    const valid= all - exp - soon;
+    stats.innerHTML = [
+      ['📁 إجمالي الوثائق', all, 'var(--primary)'],
+      ['✅ سارية', valid, 'var(--success)'],
+      ['⏰ تنتهي قريباً', soon, 'var(--warning)'],
+      ['⛔ منتهية', exp, 'var(--danger)'],
+    ].map(([label,val,col])=>`<div style="flex:1;min-width:100px;background:var(--card);border:1.5px solid ${col}30;border-radius:10px;padding:8px 12px;text-align:center;">
+      <div style="font-size:20px;font-weight:800;color:${col};">${val}</div>
+      <div style="font-size:11px;color:var(--text-muted);">${label}</div>
+    </div>`).join('');
+  }
+
+  if(!docs.length){
+    grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:32px;color:var(--text-muted);"><div style="font-size:40px;margin-bottom:8px;">📂</div><div style="font-size:13px;">لا توجد وثائق تطابق هذا الفلتر</div></div>';
+    return;
+  }
+
+  const fmt = dt => dt ? new Date(dt).toLocaleDateString('ar',{year:'numeric',month:'short',day:'numeric'}) : '—';
+  grid.innerHTML = docs.map(d => {
+    const isImg = (d.type||'').startsWith('image/');
+    const kb    = Math.round((d.size||0)/1024);
+    const icon  = _docTypeIcon(d.docType||d.name);
+    const exp   = _docExpiryInfo(d.expiryDate);
+    const bord  = exp.days!==null && exp.days<=30 ? (exp.days<0?'var(--danger)':'var(--warning)') : 'var(--border)';
+    const prev  = isImg
+      ? '<img src="'+d.data+'" style="width:100%;height:75px;object-fit:cover;border-radius:8px;margin-bottom:6px;border:1px solid var(--border);">'
+      : '<div style="background:var(--bg);border-radius:8px;height:60px;display:flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:6px;">'+icon+'</div>';
+    return '<div class="emp-doc-card" style="border-color:'+bord+';">'
+      +prev
+      +'<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">'
+      +'<div style="width:7px;height:7px;border-radius:50%;background:var(--primary);flex-shrink:0;"></div>'
+      +'<div style="font-size:11px;font-weight:700;color:var(--primary);">'+esc(d.empName||'')+'</div>'
+      +(exp.badge?'<span class="badge '+exp.cls+'" style="font-size:9px;margin-right:auto;">'+exp.badge+'</span>':'')
+      +'</div>'
+      +'<div class="emp-doc-name" style="font-size:12px;">'+icon+' '+esc(d.docType||d.name)+'</div>'
+      +(d.issueDate  ?'<div class="emp-doc-meta">📅 إصدار: '+fmt(d.issueDate)+'</div>':'')
+      +(d.expiryDate ?'<div class="emp-doc-meta" style="font-weight:'+(exp.days!==null&&exp.days<=30?'700':'400')+';color:'+(exp.days!==null&&exp.days<=30?'var(--danger)':'var(--text-muted)')+';">⏳ انتهاء: '+fmt(d.expiryDate)+'</div>':'')
+      +(d.note?'<div class="emp-doc-meta">📝 '+esc(d.note)+'</div>':'')
+      +'<div class="emp-doc-meta">رُفع: '+fmt(d.uploadedAt)+' · '+kb+' كيلو</div>'
+      +'<div style="display:flex;gap:5px;margin-top:6px;">'
+      +'<button class="btn bg btn-sm" style="flex:1;font-size:11px;" onclick="_viewDoc(\''+d.id+'\')">👁️ عرض</button>'
+      +'<button class="btn bd btn-sm" style="font-size:11px;" onclick="_deleteMyDoc(\''+d.id+'\')">🗑️ مسح</button>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+}
+
+function updateEmpDocsNavBadge() {
+  const badge = document.getElementById('empDocsNavBadge');
+  if(!badge) return;
+  const cnt = (S.empDocUploads||[]).length;
+  badge.textContent = cnt;
+  badge.style.display = cnt>0 ? '' : 'none';
+}
+
+function openAdminUploadDocModal() {
+  const empSel = document.getElementById('adminUploadEmpSel');
+  const empId  = empSel ? empSel.value : '';
+  if(!empId){ toast('⚠️ اختر موظفاً أولاً','warning'); return; }
+  const emp = (S.employees||[]).find(e=>e.id===empId);
+  if(!emp){ toast('⚠️ الموظف غير موجود','warning'); return; }
+
+  const docTypes = ['جواز سفر','إقامة','هوية وطنية','رخصة قيادة','وكالة قانونية','عقد عمل','شهادة دراسية','شهادة خبرة','تأمين صحي','بطاقة عمل','أخرى'];
+  const typeOpts = docTypes.map(t=>`<option value="${t}">${t}</option>`).join('');
+  const html = '<div style="padding:4px;">'
+    +'<input type="hidden" id="_adUpEmpId" value="'+empId+'">'
+    +'<div style="background:var(--bg);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:13px;font-weight:700;color:var(--primary);">👤 الموظف: '+esc(emp.name)+'</div>'
+    +'<div class="form-group">'
+    +'<label>نوع الوثيقة <span class="req">*</span></label>'
+    +'<select class="form-control" id="_adUpType"><option value="">— اختر النوع —</option>'+typeOpts+'</select>'
+    +'</div>'
+    +'<div class="fr" style="gap:12px;">'
+    +'<div class="form-group" style="flex:1;"><label>تاريخ الإصدار</label>'
+    +'<input class="form-control" type="date" id="_adUpIssue" max="'+today()+'">'
+    +'</div>'
+    +'<div class="form-group" style="flex:1;"><label>تاريخ الانتهاء</label>'
+    +'<input class="form-control" type="date" id="_adUpExpiry">'
+    +'</div></div>'
+    +'<div class="form-group"><label>ملاحظة (اختياري)</label>'
+    +'<input class="form-control" id="_adUpNote" placeholder="أي ملاحظة إضافية...">'
+    +'</div>'
+    +'<div class="form-group"><label>الملف (صورة أو PDF) <span class="req">*</span></label>'
+    +'<input type="file" class="form-control" id="_adUpFile" accept="image/*,.pdf" style="padding:6px;">'
+    +'</div>'
+    +'<div id="_adUpPreview" style="margin-top:8px;text-align:center;"></div>'
+    +'<div class="btn-grp" style="margin-top:14px;">'
+    +'<button class="btn bp" onclick="_saveAdminDoc()">💾 رفع الوثيقة</button>'
+    +'<button class="btn bw" onclick="_closeDynModal()">إلغاء</button>'
+    +'</div></div>';
+  _openDynModal('📎 رفع وثيقة للموظف: '+esc(emp.name), html, '500px');
+  setTimeout(()=>{
+    const fileEl = document.getElementById('_adUpFile');
+    if(fileEl) fileEl.onchange = function(){
+      const f=this.files[0]; if(!f) return;
+      const prev=document.getElementById('_adUpPreview');
+      if(f.type.startsWith('image/')){
+        const r=new FileReader();
+        r.onload=function(ev){ prev.innerHTML='<img src="'+ev.target.result+'" style="max-width:180px;max-height:120px;border-radius:8px;border:1px solid var(--border);">'; };
+        r.readAsDataURL(f);
+      } else { prev.innerHTML='<div style="font-size:12px;color:var(--success);">📄 '+esc(f.name)+'</div>'; }
+    };
+  }, 50);
+}
+
+function _saveAdminDoc() {
+  const empId   = document.getElementById('_adUpEmpId')&&document.getElementById('_adUpEmpId').value;
+  const docType = document.getElementById('_adUpType').value;
+  const issueDate  = document.getElementById('_adUpIssue').value;
+  const expiryDate = document.getElementById('_adUpExpiry').value;
+  const note    = document.getElementById('_adUpNote').value.trim();
+  if(!empId){ toast('⚠️ خطأ: لم يُحدد الموظف','error'); return; }
+  if(!docType){ toast('⚠️ اختر نوع الوثيقة','warning'); return; }
+  const file = document.getElementById('_adUpFile')&&document.getElementById('_adUpFile').files[0];
+  if(!file){ toast('⚠️ اختر ملفاً','warning'); return; }
+  if(file.size > 5*1024*1024){ toast('⚠️ حجم الملف لا يتجاوز 5 ميغابايت','warning'); return; }
+  const emp = (S.employees||[]).find(e=>e.id===empId);
+  if(!emp){ toast('⚠️ الموظف غير موجود','error'); return; }
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    if(!S.empDocUploads) S.empDocUploads=[];
+    const newDoc = {
+      id:uid(), empId:empId, empName:emp.name,
+      docType, issueDate, expiryDate, note,
+      data:ev.target.result, type:file.type,
+      size:file.size, uploadedBy:CU.fullName||'الإدارة', uploadedAt:new Date().toISOString()
+    };
+    S.empDocUploads.push(newDoc);
+    if(!emp.documents) emp.documents=[];
+    if(!emp.documents.some(d=>d.id===newDoc.id)){
+      emp.documents.push({id:newDoc.id, name:docType, number:'', expiry:expiryDate||'', note:note, uploadedAt:newDoc.uploadedAt});
+    }
+    save(); _closeDynModal();
+    toast('✅ تم رفع الوثيقة للموظف '+esc(emp.name)+' بنجاح','success');
+    if(typeof renderAdminEmpDocs==='function') renderAdminEmpDocs();
+    if(typeof renderEmpDocsPage==='function'&&document.getElementById('page-empDocs')?.classList.contains('active')) renderEmpDocsPage();
+    if(typeof updateEmpDocsNavBadge==='function') updateEmpDocsNavBadge();
+    checkDocExpiryAlerts();
+  };
+  reader.readAsDataURL(file);
+}
+
+// ══════════════════════════════════════════════════════
+//  DOCUMENT EXPIRY ALERTS
+// ══════════════════════════════════════════════════════
+function checkDocExpiryAlerts() {
+  if(!S.empDocUploads || !S.empDocUploads.length) return;
+  const today30 = new Date(); today30.setDate(today30.getDate()+30);
+  const todayStr = today();
+  // Find docs expiring within 30 days or already expired
+  const alertDocs = S.empDocUploads.filter(d=>{
+    if(!d.expiryDate) return false;
+    const diffDays = Math.round((new Date(d.expiryDate)-new Date())/(1000*60*60*24));
+    return diffDays <= 30;
+  });
+  if(!alertDocs.length) return;
+  const isAdmin = (window.CU?.type==='admin') || hasPerm('ep_viewEmployees');
+  // Build alerts for current user's docs
+  const myAlerts = alertDocs.filter(d=>d.empId===CU.empId);
+  const adminAlerts = isAdmin ? alertDocs : [];
+  // Show banner at top of docs tab
+  const banner = document.getElementById('_docExpiryBanner');
+  const allAlerts = isAdmin ? adminAlerts : myAlerts;
+  if(!allAlerts.length || !banner) return;
+  const rows = allAlerts.map(d=>{
+    const diffDays = Math.round((new Date(d.expiryDate)-new Date())/(1000*60*60*24));
+    const icon = _docTypeIcon(d.docType||d.name);
+    const expFmt = new Date(d.expiryDate).toLocaleDateString('ar',{year:'numeric',month:'long',day:'numeric'});
+    const isAdmin2 = isAdmin && d.empId!==CU.empId;
+    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(0,0,0,.06);">'
+      +'<span style="font-size:20px;">'+icon+'</span>'
+      +'<div style="flex:1;">'
+      +(isAdmin2 ? '<div style="font-size:11px;font-weight:700;color:var(--primary);">'+esc(d.empName||'')+'</div>' : '')
+      +'<div style="font-size:12px;font-weight:700;">'+esc(d.docType||d.name)+'</div>'
+      +'<div style="font-size:11px;color:'+(diffDays<0?'var(--danger)':'#e65c00')+';">'
+      +(diffDays<0 ? '⛔ منتهية منذ '+Math.abs(diffDays)+' يوم' : '⏰ تنتهي خلال '+diffDays+' يوم — '+expFmt)
+      +'</div></div>'
+      +'<button class="btn bg btn-sm" style="font-size:10px;" onclick="_viewDoc(\''+d.id+'\')">عرض</button>'
+      +'</div>';
+  }).join('');
+  banner.style.display='';
+  banner.innerHTML='<div style="background:linear-gradient(135deg,#fff8e1,#fff3cd);border:1.5px solid #f0a500;border-radius:12px;padding:12px 16px;margin-bottom:16px;">'
+    +'<div style="font-weight:700;font-size:13px;color:#7a4f00;margin-bottom:8px;">⚠️ تنبيه وثائق — '+(allAlerts.length)+' وثيقة تستحق الانتباه</div>'
+    +rows
+    +'</div>';
 }
 
 function renderMyAtt() {
@@ -14826,6 +15277,20 @@ function revokeLeave(lid) {
   if(document.getElementById('yearlyRepTable')?.innerHTML) genYearlyReport();
 }
 
+// ── الموظف يلغي طلب إجازته المعلق ──
+function cancelLeaveRequest(lid) {
+  const lr = (S.leaveRequests||[]).find(x=>x.id===lid);
+  if(!lr){ toast('⛔ الطلب غير موجود','error'); return; }
+  if(lr.empId !== CU.empId){ toast('⛔ لا يمكنك إلغاء هذا الطلب','error'); return; }
+  if(lr.status !== 'pending'){ toast('⚠️ لا يمكن إلغاء طلب تمت معالجته','warning'); return; }
+  if(!confirm('إلغاء طلب الإجازة؟ سيُحذف من قائمة الإدارة.')) return;
+  S.leaveRequests = (S.leaveRequests||[]).filter(x=>x.id!==lid);
+  save();
+  toast('✅ تم إلغاء طلب الإجازة بنجاح','success');
+  renderMyLeaves();
+  renderLeaveRequestsAdmin();
+}
+
 function renderMyLeaves() {
   const el=document.getElementById('myLeaveList');
   if(!el||!CU.empId)return;
@@ -14846,15 +15311,18 @@ function renderMyLeaves() {
       const stTxt=lr.status==='approved'?'✅ مقبولة':lr.status==='rejected'?'❌ مرفوضة':'⏳ قيد المراجعة';
       const days=lr.days||countLeaveDays(lr.from,lr.to);
       const rejectInfo=lr.rejectReason?`<div style="font-size:10.5px;color:var(--danger);margin-top:2px;">السبب: ${esc(lr.rejectReason)}</div>`:'';
-      return `<div style="background:var(--bg);border-radius:10px;padding:10px 12px;margin-bottom:6px;border:1px solid var(--border);display:flex;align-items:center;gap:10px;">
+      return `<div style="background:var(--bg);border-radius:10px;padding:10px 12px;margin-bottom:6px;border:1px solid var(--border)${lr.status==='pending'?';border-right:3px solid var(--warning)':''};display:flex;align-items:center;gap:10px;">
         <div style="flex:1;">
           <div style="font-size:13px;font-weight:700;">${esc(lr.type)} | ${fmtDate(lr.from)} — ${fmtDate(lr.to)}</div>
-          <div style="font-size:11.5px;color:var(--primary);font-weight:700;">${days} أيام</div>
+          <div style="font-size:11.5px;color:var(--primary);font-weight:700;">${days} يوم</div>
           ${lr.reason?`<div style="font-size:11.5px;color:var(--text-muted);">${esc(lr.reason)}</div>`:''}
           ${rejectInfo}
           <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">طُلبت: ${lr.requestedAt||''}</div>
         </div>
-        <span class="badge ${stCls}">${stTxt}</span>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;">
+          <span class="badge ${stCls}">${stTxt}</span>
+          ${lr.status==='pending'?`<button class="btn bd btn-sm" style="font-size:11px;padding:4px 10px;" onclick="cancelLeaveRequest('${lr.id}')">✖ إلغاء</button>`:''}
+        </div>
       </div>`;
     }).join('');
 }
@@ -20548,16 +21016,16 @@ function sdValidate(fields) {
       }
     }
 
-    // Validate end > start
+    // Validate end >= start (نفس اليوم مسموح = إجازة يوم واحد)
     if(val && f.startId) {
       const startHid = document.getElementById(f.startId);
       const startVal = startHid ? startHid.value : '';
-      if(startVal && val <= startVal) {
+      if(startVal && val < startVal) {
         if(txt){ txt.classList.add('sd-err'); txt.classList.remove('sd-ok'); }
         const startHidWrap = startHid.closest ? startHid.closest('.sd-wrap') : null;
         const startTxt = startHidWrap ? startHidWrap.querySelector('.sd-text') : null;
         if(startTxt){ startTxt.classList.add('sd-err'); startTxt.classList.remove('sd-ok'); }
-        toast('⚠️ تاريخ انتهاء ' + f.label + ' يجب أن يكون بعد تاريخ الإصدار', 'warning');
+        toast('⚠️ تاريخ ' + f.label + ' يجب أن يكون مساوياً أو بعد تاريخ البداية', 'warning');
         ok = false;
       }
     }
