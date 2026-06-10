@@ -675,10 +675,12 @@ body.dark .super-admin-bar{background:linear-gradient(135deg,#0a1828,#152a42);}
   letter-spacing:.2px;
   box-shadow:0 8px 32px rgba(0,0,0,.22);
   backdrop-filter:blur(4px);
-  display:flex;
   align-items:center;
   gap:10px;
   max-width:94%;
+}
+#toast.show{
+  display:flex !important;
 }
 #toast.ok::before{ content:'✅'; font-size:16px; }
 #toast.err::before{ content:'❌'; font-size:16px; }
@@ -1375,7 +1377,6 @@ function getPrintHeader(subtitle) {
       document.addEventListener('click',outsideClick,true);
     },0);
   }
-  </script>
   </script>
   <!-- Advanced Filters -->
   <div class="card" style="padding:12px;margin-bottom:12px;">
@@ -5469,7 +5470,7 @@ function printCaseFile(caseId) {
     </tr>`).join('')}
     </tbody></table></div>`:''}
   <div class="print-footer">مكتب شوق الكثيري للمحاماة والاستشارات القانونية — الإمارات العربية المتحدة</div>
-  <script>window.onload=()=>window.print();<\/script></body></html>`;
+  '+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>`;
   const w=window.open('','_blank'); w.document.write(html); w.document.close();
 }
 
@@ -5650,7 +5651,7 @@ function printMonthlyAttendanceReport() {
     <div>المسؤول الإداري<br><br>_______________</div>
   </div>
   <div class="print-footer">مكتب شوق الكثيري للمحاماة والاستشارات القانونية — الإمارات العربية المتحدة</div>
-  `+'<script>window.onload=()=>window.print();<\/script></body></html>';
+  `+''+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>';
   const w=window.open('','_blank'); w.document.write(html); w.document.close();
 }
 
@@ -5695,7 +5696,7 @@ function printMonthlyPerfReport() {
   <tbody>${rows}</tbody></table>
   <div style="text-align:left;margin-top:30px;font-size:12px;">مدير المكتب: _______________&nbsp;&nbsp;&nbsp; التاريخ: ${new Date().toLocaleDateString('ar-SA')}</div>
   <div class="footer">مكتب شوق الكثيري للمحاماة والاستشارات القانونية</div>
-  <script>window.onload=()=>window.print();<\/script></body></html>`;
+  '+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>`;
   const w=window.open('','_blank'); w.document.write(html); w.document.close();
 }
 
@@ -5767,7 +5768,7 @@ function runSmartNotifications() {
 
     // ── 7. مهام متأخرة ──
     const late=(S.tasks||[]).filter(t=>!t.archived&&isTaskLate(t));
-    if(late.length) addNotif('⏰ مهام متأخرة',`${late.length} مهمة تجاوزت موعد الاستحقاق`,'warning');
+    if(late.length) addNotif('⏰ مهام متأخرة',`${late.length} مهمة تجاوزت موعد الاستحقاق`,'warning',null,'','task','admin');
 
     // ── 8. مدد قانونية للقضايا المحكومة ──
     (S.cases||[]).filter(c=>c.isJudged&&c.judgedDeadlineDate&&!c.archived).forEach(c=>{
@@ -6126,6 +6127,37 @@ function logAct(action, detail) {
 }
 
 // ══════════════════════════════════════════════════════
+//  CENTRAL LEDGER — يُسجّل كل إدخال/إخراج مال في مصاريف المكتب
+//  type: 'in' (دخل) | 'out' (خرج)
+//  category: فئة المصروف/الإيراد
+//  desc: وصف العملية
+//  amount: المبلغ (موجب دائماً)
+//  date: YYYY-MM-DD
+//  ref: مرجع اختياري (رقم الموظف، العميل...)
+// ══════════════════════════════════════════════════════
+function _ledger(type, category, desc, amount, date, ref='') {
+  if(!amount || amount <= 0) return;
+  if(!S.officeExpenses) S.officeExpenses = [];
+  // إيرادات تُضاف كمصروف سالب (تدفق داخل) في جدول موحّد
+  // مصاريف تُضاف كمصروف موجب (تدفق خارج)
+  const isOut = type === 'out';
+  S.officeExpenses.push({
+    id: uid(),
+    category,
+    description: desc,
+    amount: isOut ? amount : -amount,   // سالب = دخل، موجب = خروج
+    date: date || today(),
+    vendor: ref,
+    paidBy: CU ? CU.fullName : '',
+    ref: ref,
+    auto: true,   // مُنشأ تلقائياً (لا يُحذف يدوياً)
+    ledgerType: type,  // 'in' | 'out'
+    createdAt: new Date().toISOString(),
+    createdBy: CU ? CU.fullName : ''
+  });
+}
+
+// ══════════════════════════════════════════════════════
 //  UTILS
 // ══════════════════════════════════════════════════════
 const today = () => new Date().toISOString().split('T')[0];
@@ -6402,10 +6434,7 @@ function addNotif(title, msg, type='info', empId=null, refId='', refType='', tar
 function updBell() {
   const isAdminB=CU&&CU.type==='admin';
   const empIdB=CU?.id||'';
-  const mine=S.notifications.filter(n=>{
-    if(isAdminB) return !n.empId || n.empId==='_admin_';
-    return !n.empId||n.empId===empIdB;
-  });
+  const mine=_getMyNotifs();
   const n=mine.filter(x=>!x.read).length;
   const el=document.getElementById('bellCount');
   if (!el) return;
@@ -6479,23 +6508,42 @@ function clearNotifs() {
 function _getMyNotifs() {
   if(!CU||!S.notifications) return [];
   const isAdmin = CU.type==='admin';
-  const empId   = CU.id||'';
-  const canFin  = isAdmin || hasPerm('ep_viewFinance') || hasPerm('ep_addFinance');
-  const canSal  = isAdmin || hasPerm('ep_viewSalaries');
-  const canAtt  = isAdmin || hasPerm('ep_viewAllAtt');
+  const empId   = CU.id||CU.empId||'';
+
+  // صلاحيات الموظف
+  const canFin     = isAdmin || hasPerm('ep_viewFinance') || hasPerm('ep_addFinance');
+  const canSal     = isAdmin || hasPerm('ep_viewSalaries');
+  const canAtt     = isAdmin || hasPerm('ep_viewAllAtt');
+  const canCases   = isAdmin || hasPerm('ep_viewCases')   || hasPerm('ep_addCase');
+  const canTasks   = isAdmin || hasPerm('ep_viewTasks')   || hasPerm('ep_addTask');
+  const canEmps    = isAdmin || hasPerm('ep_viewEmployees')|| hasPerm('ep_manageEmployees');
 
   return S.notifications.filter(n=>{
     // إشعار موجّه للمدير فقط
     if(n.empId==='_admin_') return isAdmin;
-    // إشعار موجّه لموظف بعينه
+
+    // إشعار موجّه لموظف بعينه — يراه هو والأدمن فقط
     if(n.empId) return n.empId===empId || isAdmin;
-    // إشعار له صلاحية مستهدفة
-    if(n.targetRole==='finance')     return canFin;
-    if(n.targetRole==='salary')      return canSal;
-    if(n.targetRole==='attendance')  return canAtt;
-    if(n.targetRole==='admin')       return isAdmin;
-    // إشعار عام → الكل
-    return true;
+
+    // إشعار له صلاحية مستهدفة صريحة
+    if(n.targetRole==='finance')    return canFin || canSal;
+    if(n.targetRole==='salary')     return canSal;
+    if(n.targetRole==='attendance') return canAtt;
+    if(n.targetRole==='admin')      return isAdmin;
+    if(n.targetRole==='case')       return canCases || isAdmin;
+    if(n.targetRole==='task')       return canTasks || isAdmin;
+    if(n.targetRole==='suggestion') return isAdmin;
+
+    // إشعار عام — نصفّيه حسب الفئة والصلاحية
+    const cat = n.category||'نظام';
+    if(cat==='مالية')  return canFin || canSal;
+    if(cat==='قضية')   return canCases;
+    if(cat==='مهمة')   return canTasks || isAdmin || (n.title||'').includes('إليك');
+    if(cat==='موظف')   return canEmps || canAtt;
+    if(cat==='نظام')   return isAdmin;
+
+    // أي شيء آخر للأدمن فقط
+    return isAdmin;
   });
 }
 
@@ -8977,7 +9025,7 @@ function printMyAttendance() {
   <table><thead><tr>
     <th>التاريخ</th><th>وقت الحضور</th><th>وقت الانصراف</th><th>ساعات العمل</th><th>الحالة</th>
   </tr></thead><tbody>${rows}</tbody></table>
-  <script>window.onload=()=>window.print();<\/script></body></html>`;
+  '+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>`;
   const w=window.open('','_blank'); w.document.write(html); w.document.close();
 }
 
@@ -9182,7 +9230,7 @@ function printMyAttDetail() {
   <div class="stats">${statsEl?statsEl.innerHTML.replace(/<span[^>]*>|<\/span>/g,'').replace(/class="[^"]*"/g,''):''}  </div>
   <table><thead><tr><th>التاريخ</th><th>اليوم</th><th>الحضور</th><th>الانصراف</th><th>ساعات العمل</th><th>التأخير</th><th>الحالة</th></tr></thead>
   <tbody>${tableEl?tableEl.innerHTML.replace(/<span class="badge[^"]*">/g,'').replace(/<\/span>/g,''):''}</tbody></table>
-  <script>window.onload=()=>window.print();<\/script></body></html>`;
+  '+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>`;
   const w=window.open('','_blank'); w.document.write(html); w.document.close();
 }
 
@@ -9337,7 +9385,7 @@ function saveEmp() {
     S.employees.push({id:uid(),code,...data,createdAt:new Date().toISOString()});
     toast('✅ تم إضافة الموظف','success');
     logAct('إضافة موظف',name);
-    addNotif('👤 موظف جديد',`تم إضافة ${name} للنظام`,'info');
+    addNotif('👤 موظف جديد',`تم إضافة ${name} للنظام`,'info',null,'','employee','admin');
   }
   save(); closeM('empModal'); renderEmps(); renderEmpExpWarn(); renderAdminEmpTable();
   // إعادة تطبيق صلاحيات الشريط فوراً — يفيد إذا كان المستخدم الحالي هو الموظف المعدَّل
@@ -9442,6 +9490,17 @@ function _hideEmpFinancialData(empId, permanent) {
     S.empSettlementRequests = (S.empSettlementRequests||[]).filter(r=>r.empId!==empId);
     S.empClearanceRequests = (S.empClearanceRequests||[]).filter(r=>r.empId!==empId);
     S.salaryRuns = (S.salaryRuns||[]).filter(r=>r.empId!==empId);
+    // البيانات المالية الإضافية
+    S.empLoans = (S.empLoans||[]).filter(l=>l.empId!==empId);
+    S.empBonuses = (S.empBonuses||[]).filter(b=>b.empId!==empId);
+    S.empManualDeductions = (S.empManualDeductions||[]).filter(d=>d.empId!==empId);
+    S.leaveRequests = (S.leaveRequests||[]).filter(l=>l.empId!==empId);
+    S.attendance = (S.attendance||[]).filter(a=>a.empId!==empId);
+    S.evaluations = (S.evaluations||[]).filter(e=>e.empId!==empId);
+    S.excuseRequests = (S.excuseRequests||[]).filter(r=>r.empId!==empId);
+    S.absenceExcuses = (S.absenceExcuses||[]).filter(r=>r.empId!==empId);
+    S.salaryOverrides = (S.salaryOverrides||[]).filter(o=>o.empId!==empId);
+    S.financePaymentRequests = (S.financePaymentRequests||[]).filter(r=>r.empId!==empId);
   } else {
     // أرشفة: أخفِ فقط (تُحتفظ للاستعادة)
     (S.empCustodies||[]).filter(c=>c.empId===empId).forEach(c=>c.hiddenByArchive=true);
@@ -9451,12 +9510,15 @@ function _hideEmpFinancialData(empId, permanent) {
     (S.empPurchaseRequests||[]).filter(r=>r.empId===empId).forEach(r=>r.hiddenByArchive=true);
     (S.empSettlementRequests||[]).filter(r=>r.empId===empId).forEach(r=>r.hiddenByArchive=true);
     (S.empClearanceRequests||[]).filter(r=>r.empId===empId).forEach(r=>r.hiddenByArchive=true);
+    (S.empLoans||[]).filter(l=>l.empId===empId).forEach(l=>l.hiddenByArchive=true);
+    (S.empBonuses||[]).filter(b=>b.empId===empId).forEach(b=>b.hiddenByArchive=true);
+    (S.empManualDeductions||[]).filter(d=>d.empId===empId).forEach(d=>d.hiddenByArchive=true);
   }
 }
 
 function restoreEmpFinancialData(empId) {
   // استعادة البيانات عند رفع الأرشفة
-  ['empCustodies','empOwnPayments','empPrepayments','empExpenseRequests','empPurchaseRequests','empSettlementRequests','empClearanceRequests'].forEach(key=>{
+  ['empCustodies','empOwnPayments','empPrepayments','empExpenseRequests','empPurchaseRequests','empSettlementRequests','empClearanceRequests','empLoans','empBonuses','empManualDeductions'].forEach(key=>{
     (S[key]||[]).filter(x=>x.empId===empId&&x.hiddenByArchive).forEach(x=>delete x.hiddenByArchive);
   });
 }
@@ -9591,7 +9653,7 @@ function printEmpsFiltered() {
     '<table><thead><tr><th>#</th><th>الاسم</th><th>رقم الهوية</th><th>القسم</th><th>المسمى</th><th>الجوال</th><th>انتهاء الإقامة</th><th>الحالة</th></tr></thead>'+
     '<tbody>'+rows+'</tbody></table>'+
     '<div class="print-footer">مكتب شوق الكثيري للمحاماة — '+new Date().toLocaleDateString("ar-SA")+'</div>'+
-    '<script>window.onload=()=>window.print();<\/script></body></html>');
+    ''+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>');
   w.document.close();
 }
 
@@ -10173,7 +10235,7 @@ function saveTask() {
     if(t) Object.assign(t,data);
     toast('✅ تم تحديث المهمة','success');
     if(assignees.length){
-      assignees.forEach(eid=>{ const e=S.employees.find(x=>x.id===eid); if(e) addNotif('📋 تحديث مهمة مُسندة إليك',`تم تعديل مهمة: "${title}"`,'info'); });
+      assignees.forEach(eid=>{ const e=S.employees.find(x=>x.id===eid); if(e) addNotifToEmp(eid,'📋 تحديث مهمة مُسندة إليك',`تم تعديل مهمة: "${title}"`,'info'); });
     }
   } else {
     const newTask={id:uid(),...data,status:'new',createdBy:CU.id,createdByName:CU.fullName,createdAt:new Date().toISOString(),takenBy:null,takenByName:null,completedAt:null,completedByName:null};
@@ -10181,7 +10243,7 @@ function saveTask() {
     toast('✅ تم إضافة المهمة','success');
     logAct('إضافة مهمة',title);
     if(assignees.length){
-      assignees.forEach(eid=>{ const e=S.employees.find(x=>x.id===eid); if(e) addNotif('📋 مهمة جديدة مُسندة إليك',`تم تكليفك بمهمة: "${title}"`,'info'); });
+      assignees.forEach(eid=>{ const e=S.employees.find(x=>x.id===eid); if(e) addNotifToEmp(eid,'📋 مهمة جديدة مُسندة إليك',`تم تكليفك بمهمة: "${title}"`,'info'); });
     } else {
       addNotif('📋 مهمة جديدة متاحة للجميع',`مهمة جديدة: ${title}`,'info');
     }
@@ -10220,7 +10282,7 @@ function doReassign() {
   // Notify newly added assignees
   newAssignees.filter(id=>!oldAssignees.includes(id)).forEach(eid=>{
     const e=S.employees.find(x=>x.id===eid);
-    if(e) addNotif('📋 مهمة مُحوَّلة إليك',`تم تحويل مهمة "${t.title}" إليك`,'info');
+    if(e) addNotifToEmp(eid,'📋 مهمة مُحوَّلة إليك',`تم تحويل مهمة "${t.title}" إليك`,'info');
   });
   save(); closeM('reassignModal'); renderTasks(); updBell();
 }
@@ -10233,7 +10295,7 @@ function takeTask(id) {
   toast('⚙️ تم أخذ المهمة — يمكنك الآن العمل عليها','info');
   logAct('أخذ مهمة',t.title);
   // Notify admin
-  if(CU.type!=='admin') addNotif('⚙️ مهمة قيد التنفيذ',`${CU.fullName} بدأ العمل على: ${t.title}`,'info');
+  if(CU.type!=='admin') addNotif('⚙️ مهمة قيد التنفيذ',`${CU.fullName} بدأ العمل على: ${t.title}`,'info',null,'','task','admin');
   save(); renderTasks(); updBell();
 }
 
@@ -10261,7 +10323,7 @@ function doCompleteTask() {
   logAct('إنجاز مهمة',t.title+' — '+note);
   closeM('taskCompleteModal');
   // Notify admin/creator
-  addNotif('✅ مهمة منجزة',`${CU.fullName} أنجز المهمة: ${t.title}\nالملاحظة: ${note}`,'success');
+  addNotif('✅ مهمة منجزة',`${CU.fullName} أنجز المهمة: ${t.title}\nالملاحظة: ${note}`,'success',null,'','task','admin');
   save(); renderTasks(); updBell();
 }
 
@@ -10513,7 +10575,7 @@ function printTasksFiltered() {
   ${summaryHtml}
   ${sectionsHtml}
   <div class="print-footer">مكتب شوق الكثيري للمحاماة والاستشارات القانونية — الإمارات العربية المتحدة &nbsp;|&nbsp; تاريخ الطباعة: ${new Date().toLocaleDateString('ar-SA')}</div>
-  <script>window.onload=()=>window.print();<\/script></body></html>`);
+  '+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>`);
   w.document.close();
 }
 
@@ -10544,7 +10606,7 @@ function printTask(taskId) {
     (t.description?'<div class="ib" style="margin-top:10px;"><div class="lbl">الوصف</div><div class="val" style="font-weight:400;line-height:1.8;">'+esc(t.description)+'</div></div>':'')+
     (t.notes?'<div class="ib"><div class="lbl">ملاحظات</div><div class="val" style="font-weight:400;">'+esc(t.notes)+'</div></div>':'')+
     '<div style="text-align:center;margin-top:24px;font-size:10px;color:#999;border-top:1px solid #ddd;padding-top:8px;">مكتب شوق الكثيري للمحاماة — '+new Date().toLocaleDateString('ar-SA')+'</div>'+
-    '<script>window.onload=()=>window.print();<\/script></body></html>');
+    ''+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>');
   w.document.close();
 }
 
@@ -10968,8 +11030,20 @@ function calcLeaveData(emp, yearNum) {
     accruedLeave = Math.min(ANNUAL_LEAVE, Math.round(monthsTracked * MONTHLY_RATE * 10) / 10);
   }
 
-  // Remaining balance = accrued - absences (from entry date only) - annual leave taken
-  const remaining=Math.max(0, accruedLeave - totalAbs - usedLeave);
+  // أيام الغياب المُعفاة (salary overrides) لا تُخصم من رصيد الإجازة
+  let exemptedAbsDays = 0;
+  for(let m=1; m<=12; m++) {
+    const mm = String(m).padStart(2,'0');
+    const monthKey = yearStr+'-'+mm;
+    const override = (S.salaryOverrides||[]).find(o=>o.empId===emp.id&&o.month===monthKey&&o.type==='absence_exempt');
+    if(override) {
+      // احسب أيام الغياب الفعلي في هذا الشهر لطرحها من المجموع
+      const mStats = monthAttStats(emp, yearStr, mm);
+      exemptedAbsDays += mStats.abs;
+    }
+  }
+  // Remaining balance = accrued - absences (from entry date only, excluding exempted) - annual leave taken
+  const remaining=Math.max(0, accruedLeave - Math.max(0, totalAbs - exemptedAbsDays) - usedLeave);
 
   const hireNote=entryDate>yearStr+'-01-01'?`(بداية الحساب: ${fmtDate(entryDate)})`:null;
 
@@ -11216,7 +11290,7 @@ function printYearlyReport() {
     '<th>نسبة الالتزام</th><th>مستحق</th><th>خُصم للغياب</th><th>إجازة مأخوذة</th><th>رصيد 🏖️</th>'+
     '</tr></thead><tbody>'+rows+'</tbody></table>'+
     '<div class="print-footer">مكتب شوق الكثيري للمحاماة</div>'+
-    '<script>window.onload=()=>window.print();<\/script></body></html>';
+    ''+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>';
   const w=window.open('','_blank'); w.document.write(html); w.document.close();
 }
 
@@ -11771,7 +11845,7 @@ function printArchiveSection(tableId, title) {
   const w=window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>${title}</title>
   <style>${getPrintWatermarkStyle()}body{font-family:Arial,sans-serif;padding:20px;}table{width:100%;border-collapse:collapse;font-size:11.5px;}th,td{border:1px solid #ccc;padding:6px;}th{background:#0f4c81;color:#fff;}tr:nth-child(even){background:#f5f8ff;}</style>
-  </head><body>${getPrintHeader(title)}${body}<script>window.onload=()=>window.print();<\/script></body></html>`);
+  </head><body>${getPrintHeader(title)}${body}'+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>`);
   w.document.close();
 }
 
@@ -12417,7 +12491,7 @@ function _printHtml(bodyHtml, title) {
     + getPrintHeader(title)
     + bodyHtml
     + '<div class="print-footer">مكتب شوق الكثيري للمحاماة والاستشارات القانونية — الإمارات العربية المتحدة</div>'
-    + '<script>window.onload=()=>window.print();<\/script></body></html>');
+    + ''+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>');
   w.document.close();
 }
 
@@ -12696,7 +12770,7 @@ function saveOfficeExpense() {
     if(idx>=0) S.officeExpenses[idx]={...S.officeExpenses[idx],...obj};
     toast('✅ تم التعديل','success');
   } else {
-    S.officeExpenses.push({id:uid(),...obj,createdAt:new Date().toISOString(),createdBy:CU.fullName});
+    S.officeExpenses.push({id:uid(),...obj,ledgerType:'out',createdAt:new Date().toISOString(),createdBy:CU.fullName});
     toast('✅ تم حفظ المصروف','success');
     logAct('إضافة مصروف مكتب',`${cat} — ${amount.toLocaleString()} د.إ`);
   }
@@ -12714,22 +12788,27 @@ function renderOeKpi() {
   const month=today().slice(0,7);
   const all=(S.officeExpenses||[]);
   const thisMonth=all.filter(x=>(x.date||'').startsWith(month));
-  const total=all.reduce((s,x)=>s+x.amount,0);
-  const thisMonthTotal=thisMonth.reduce((s,x)=>s+x.amount,0);
-  const cats={};all.forEach(x=>{cats[x.category]=(cats[x.category]||0)+x.amount;});
+  const total=all.filter(x=>x.amount>0).reduce((s,x)=>s+x.amount,0);
+  const totalIn=all.filter(x=>x.amount<0).reduce((s,x)=>s+Math.abs(x.amount),0);
+  const thisMonthTotal=thisMonth.filter(x=>x.amount>0).reduce((s,x)=>s+x.amount,0);
+  const cats={};all.filter(x=>x.amount>0).forEach(x=>{cats[x.category]=(cats[x.category]||0)+x.amount;});
   const topCat=Object.entries(cats).sort((a,b)=>b[1]-a[1])[0];
   el.innerHTML=`
     <div class="stat" style="border-right:4px solid var(--danger);">
       <div class="stat-ico" style="background:linear-gradient(135deg,#fde8e8,#f5c8c8);">📅</div>
       <div><div class="stat-num">${thisMonthTotal.toLocaleString()}</div><div class="stat-lbl">مصاريف هذا الشهر</div></div>
     </div>
+    <div class="stat" style="border-right:4px solid var(--success);">
+      <div class="stat-ico" style="background:linear-gradient(135deg,#e8f5e9,#c8f0d8);">💰</div>
+      <div><div class="stat-num" style="color:var(--success);">${totalIn.toLocaleString()}</div><div class="stat-lbl">إجمالي الإيرادات المسجّلة</div></div>
+    </div>
     <div class="stat" style="border-right:4px solid var(--warning);">
       <div class="stat-ico" style="background:linear-gradient(135deg,#fff8e3,#fdebc8);">📋</div>
       <div><div class="stat-num">${all.length}</div><div class="stat-lbl">إجمالي السجلات</div></div>
     </div>
     <div class="stat" style="border-right:4px solid var(--primary);">
-      <div class="stat-ico" style="background:linear-gradient(135deg,#e3f0fb,#a0c0e0);">💰</div>
-      <div><div class="stat-num">${total.toLocaleString()}</div><div class="stat-lbl">إجمالي المصاريف الكلية</div></div>
+      <div class="stat-ico" style="background:linear-gradient(135deg,#e3f0fb,#a0c0e0);">📊</div>
+      <div><div class="stat-num" style="color:${totalIn-total>=0?'var(--success)':'var(--danger)'};">${Math.abs(totalIn-total).toLocaleString()}</div><div class="stat-lbl">${totalIn-total>=0?'صافي ربح':'صافي خسارة'}</div></div>
     </div>
     <div class="stat" style="border-right:4px solid #9b59b6;">
       <div class="stat-ico" style="background:linear-gradient(135deg,#f5eafb,#e0c8f0);">🏆</div>
@@ -12749,21 +12828,26 @@ function renderOfficeExpenses() {
   el.innerHTML=`<div class="tbl-wrap"><table><thead><tr>
     <th>الفئة</th><th>المبلغ</th><th>التاريخ</th><th>الجهة</th><th>الوصف</th><th>طريقة الدفع</th><th>المرجع</th><th>إجراءات</th>
   </tr></thead><tbody>
-  ${expenses.map(x=>`<tr>
+  ${expenses.map(x=>{
+    const isIn=x.ledgerType==='in'||x.amount<0;
+    const dispAmt=Math.abs(x.amount);
+    const amtColor=isIn?'var(--success)':'var(--danger)';
+    const amtSign=isIn?'+ ':'- ';
+    const autoTag=x.auto?'<span style="background:#e8f5e9;color:#1a9e5f;border-radius:4px;padding:1px 5px;font-size:10px;margin-left:4px;">⚙️ تلقائي</span>':'';
+    const descField=x.description||x.desc||'-';
+    return `<tr style="${isIn?'background:#f8fff8;':''}">
     <td><span style="background:#f0f4f8;border-radius:6px;padding:3px 8px;font-size:12px;">${catIco[x.category]||'📦'} ${esc(x.category||'-')}</span></td>
-    <td style="font-weight:800;color:var(--danger);">${x.amount.toLocaleString()} د.إ</td>
+    <td style="font-weight:800;color:${amtColor};">${amtSign}${dispAmt.toLocaleString()} د.إ</td>
     <td>${fmtDate(x.date||'')}</td>
     <td style="color:var(--text-muted);">${esc(x.vendor||'—')}</td>
-    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(x.desc||'')}">${esc(x.desc||'-')}</td>
+    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(descField)}">${autoTag}${esc(descField)}</td>
     <td><span style="font-size:11px;background:${x.paidBy==='من مال المالك'?'#f3e8fd':'#e3f0fb'};border-radius:6px;padding:2px 7px;">${esc(x.paidBy||'-')}</span></td>
     <td style="color:var(--text-muted);font-size:11.5px;">${esc(x.ref||'—')}</td>
-    <td><div class="btn-grp">
-      <button class="btn bs btn-sm" onclick="openOfficeExpenseModal('${x.id}')">✏️</button>
-      <button class="btn bd btn-sm" onclick="deleteOfficeExpense('${x.id}')">🗑️</button>
-    </div></td>
-  </tr>`).join('')}
+    <td><div class="btn-grp">${x.auto?'<span style="color:var(--text-muted);font-size:11px;">مؤمَّن</span>':`<button class="btn bs btn-sm" onclick="openOfficeExpenseModal('${x.id}')">✏️</button><button class="btn bd btn-sm" onclick="deleteOfficeExpense('${x.id}')">🗑️</button>`}</div></td>
+  </tr>`;}).join('')}
   </tbody></table></div>`;
 }
+
 
 function renderOeCategoryChart() {
   const wrapper=document.getElementById('oeCategoryChartWrapper'); if(!wrapper) return;
@@ -12916,6 +13000,11 @@ function saveOwnerTransfer() {
     toast('✅ تم التعديل','success');
   } else {
     S.ownerTransfers.push({id:uid(),...obj,createdAt:new Date().toISOString(),createdBy:CU.fullName});
+    if(direction==='to_office') {
+      _ledger('in','إيداعات المالك',`إيداع المالك${obj.bankName?' — '+obj.bankName:''}${obj.note?' — '+obj.note:''}`,amount,date,'المالك');
+    } else {
+      _ledger('out','سحوبات المالك',`سحب المالك${obj.bankName?' — '+obj.bankName:''}${obj.note?' — '+obj.note:''}`,amount,date,'المالك');
+    }
     toast(`✅ تم تسجيل ${direction==='to_office'?'الإيداع':'السحب'}','success`);
     logAct(`حوالة مالك — ${direction==='to_office'?'إيداع':'سحب'}`,`${amount.toLocaleString()} د.إ`);
   }
@@ -13556,6 +13645,8 @@ function savePayment() {
     if(p) Object.assign(p,{finId,caseId,clientId,clientName,amount,date,method,ref,note,updatedAt:today()});
   } else {
     S.payments.push({id:uid(),finId,caseId,clientId,clientName,amount,date,method,ref,note,createdAt:today(),createdBy:CU?.fullName||''});
+    const _cas=(S.cases||[]).find(c=>c.id===caseId);
+    _ledger('in','إيرادات عملاء',`دفعة من ${clientName}${_cas?' | '+(_cas.numOffice||_cas.numCourt):''}${ref?' | '+ref:''}`,amount,date,clientName);
   }
   save(); toast(`✅ تم تسجيل الدفعة: ${amount.toLocaleString()} د.إ`,'success');
   // log
@@ -13784,6 +13875,7 @@ function saveClientRefund() {
 
   const typeLabel = adjType==='refund' ? 'استرداد نقدي' : 'تخفيض';
   const typeIcon  = adjType==='refund' ? '↩️' : '↘️';
+  if(adjType==='refund') _ledger('out','استردادات عملاء',`استرداد للعميل ${f.clientName||''}${reason?' — '+reason:''}${note?' — '+note:''}`,amt,date,f.clientName||'');
   logCaseActivity(f.caseId,'مالية',`${typeIcon} ${typeLabel}: ${amt.toLocaleString()} د.إ`,`السبب: ${reason}${note?' — '+note:''}`);
   logAct(typeLabel,`${f.clientName} — ${amt.toLocaleString()} د.إ — ${reason}`);
   save();
@@ -14732,6 +14824,8 @@ function confirmSalaryDisburse() {
     const l=(S.empLoans||[]).find(x=>x.id===d.loanId);
     if(l){const inst=(l.installments||[]).find(i=>i.id===d.instId);if(inst){inst.paid=true;inst.paidAt=today();} if(calcLoanRemaining(l)===0)l.status='settled';}
   });
+  // تسجيل أقساط السلفة المخصومة كاسترداد (خُصمت من الراتب)
+  if(p.loanDed>0) _ledger('in','استرداد سلف',`خصم قسط سلفة من راتب ${emp.name} — شهر ${month}`,p.loanDed,today(),emp.name);
   const earlyPay = month > today().slice(0,7);
   const run={
     id:uid(),empId,empName:emp.name,month,
@@ -14746,6 +14840,8 @@ function confirmSalaryDisburse() {
   const existing=S.salaryRuns.findIndex(r=>r.empId===empId&&r.month===month);
   if(existing>=0) S.salaryRuns[existing]=run; else S.salaryRuns.push(run);
   save();
+  // ── تسجيل في دفتر المصاريف ──
+  _ledger('out','رواتب',`راتب ${emp.name} — شهر ${month}`,p.net,today(),emp.name);
   addNotifToEmp(empId,'💳 تم صرف راتبك',
     `تم صرف راتب شهر ${month}:\nالأساسي: ${p.base.toLocaleString()} د.إ\nالخصومات: -${p.totalDeductions.toLocaleString()} د.إ\nالصافي: ${p.net.toLocaleString()} د.إ\nعبر: ${method}${ref?' — مرجع: '+ref:''}\n\n⚠️ يُرجى تأكيد الاستلام من خلال النظام.`,'success','');
   toast(`✅ تم صرف راتب ${emp.name} — ${p.net.toLocaleString()} د.إ عبر ${method}`,'success');
@@ -14766,8 +14862,10 @@ function approveAllSalaries() {
       const l=(S.empLoans||[]).find(x=>x.id===d.loanId);
       if(l){const inst=(l.installments||[]).find(i=>i.id===d.instId);if(inst){inst.paid=true;inst.paidAt=today();}if(calcLoanRemaining(l)===0)l.status='settled';}
     });
+    if(p.loanDed>0) _ledger('in','استرداد سلف',`خصم قسط سلفة من راتب ${emp.name} — شهر ${month}`,p.loanDed,today(),emp.name);
     const run={id:uid(),empId:emp.id,empName:emp.name,month,base:p.base,bonuses:p.bonuses,absenceDeduction:p.absenceDeduction,lateDeduction:p.lateDeduction,loanDed:p.loanDed,manualDed:p.manualDed,totalDeductions:p.totalDeductions,net:p.net,disbursed:true,earlyPay:false,disbursedAt:new Date().toISOString(),disbursedBy:CU.fullName,note:'صرف جماعي',method:'تحويل بنكي',empAckStatus:'pending'};
     S.salaryRuns.push(run);
+    _ledger('out','رواتب',`راتب ${emp.name} — شهر ${month}`,p.net,today(),emp.name);
     addNotifToEmp(emp.id,'💳 تم صرف راتبك',`تم صرف راتب شهر ${month} — الصافي: ${p.net.toLocaleString()} د.إ`,'success','');
   });
   save(); logAct('صرف رواتب جماعي',`شهر ${month} — ${pending.length} موظف`);
@@ -14818,7 +14916,7 @@ function printSalaries() {
     '<style>'+getPrintWatermarkStyle()+'body{font-family:Arial,sans-serif;padding:20px;}</style>'+
     '</head><body>'+getPrintHeader('كشف الرواتب — '+month)+body+
     '<div class="print-footer">مكتب شوق الكثيري للمحاماة</div>'+
-    '<script>window.onload=()=>window.print();<\/script></body></html>');
+    ''+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>');
   w.document.close(); w.print();
 }
 
@@ -15151,7 +15249,13 @@ function saveEval() {
     S.evaluations.push({id:uid(),empId,empName:emp?.name||'',period,scores,avg:Math.round(avg*10)/10,notes,evaluatedBy:CU.fullName,createdAt:today()});
   }
   save(); toast('⭐ تم حفظ التقييم','success'); closeM('evalModal'); renderEvaluations();
-  addNotifToEmp(empId,'⭐ تم تقييم أدائك','تم إجراء تقييم الأداء للفترة: '+period,'info','');
+  const roundedAvg = Math.round(avg*10)/10;
+  // إشعار للموظف دائماً
+  addNotifToEmp(empId,'⭐ تم تقييم أدائك',`تم إجراء تقييم الأداء للفترة: ${period} — المتوسط: ${roundedAvg}/10`,'info','');
+  // تحذير للأدمن إذا كان التقييم متدنياً (أقل من 5)
+  if(roundedAvg < 5) {
+    addNotif('⚠️ تحذير: أداء متدنٍ',`${emp?.name||''} حصل على تقييم ${roundedAvg}/10 في فترة ${period} — يُنصح بالمراجعة`,'warning',null,'','','admin');
+  }
 }
 
 function buildEvalFilters() {
@@ -15319,7 +15423,7 @@ function printExpReport() {
   <h2>⚠️ تقرير الرخص والوثائق — مكتب شوق الكثيري</h2>
   <div class="meta">الفلترة: ${filterLabel} | الفئة: ${catLabel} | العدد: ${items.length} | تاريخ: ${new Date().toLocaleDateString('ar-SA')}</div>
   <table><thead><tr><th>الفئة</th><th>الاسم</th><th>تاريخ الانتهاء</th><th>الحالة</th></tr></thead><tbody>${rows}</tbody></table>
-  <script>window.onload=()=>window.print();<\/script></body></html>`;
+  '+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>`;
   const w=window.open('','_blank'); w.document.write(html); w.document.close();
 }
 
@@ -15437,7 +15541,7 @@ function submitLeave() {
   if(!S.leaveRequests) S.leaveRequests=[];
   S.leaveRequests.unshift(lr);
   save();
-  addNotif('طلب إجازة جديد','قدّم '+lr.empName+' طلب إجازة ('+days+' أيام) من '+fmtDate(from)+' إلى '+fmtDate(to),'info');
+  addNotif('طلب إجازة جديد','قدّم '+lr.empName+' طلب إجازة ('+days+' أيام) من '+fmtDate(from)+' إلى '+fmtDate(to),'info',null,lr.id,'','admin');
   toast(`✅ تم إرسال طلب الإجازة (${days} أيام) بنجاح`,'success');
   logAct('طلب إجازة', lr.empName+' | '+from+' → '+to+' ('+days+'د)');
   closeM('leaveModal');
@@ -15847,7 +15951,7 @@ function printActivityLog() {
   const w=window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>سجل النشاط</title>
   <style>${getPrintWatermarkStyle()}body{font-family:Arial,sans-serif;padding:20px;}table{width:100%;border-collapse:collapse;font-size:11px;}th,td{border:1px solid #ccc;padding:5px;}th{background:#0f4c81;color:#fff;}</style>
-  </head><body>${getPrintHeader('سجل النشاط — '+new Date().toLocaleDateString('ar-SA'))}${body}<script>window.onload=()=>window.print();<\/script></body></html>`);
+  </head><body>${getPrintHeader('سجل النشاط — '+new Date().toLocaleDateString('ar-SA'))}${body}'+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>`);
   w.document.close();
 }
 
@@ -15890,7 +15994,7 @@ function printPublicHolidays() {
   const w=window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>الإجازات الرسمية</title>
   <style>${getPrintWatermarkStyle()}body{font-family:Arial,sans-serif;padding:20px;}</style>
-  </head><body>${getPrintHeader('الإجازات الرسمية والمناسبات')}${body}<script>window.onload=()=>window.print();<\/script></body></html>`);
+  </head><body>${getPrintHeader('الإجازات الرسمية والمناسبات')}${body}'+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>`);
   w.document.close();
 }
 
@@ -17755,7 +17859,7 @@ function printCaseSessions(caseId) {
     '<th>#</th><th>الجلسة القادمة</th><th>المحكمة / الدرجة</th><th>القاعة</th><th>الدائرة</th><th>الوضعية السابقة</th><th>قرار / نتيجة السابقة</th><th>نوع الإجراء</th><th>المحامي</th><th>الموكل</th><th>الخصم</th><th>الهدف / الطلبات</th>'+
     '</tr></thead><tbody>'+rows+'</tbody></table>'+
     '<div class="print-footer">مكتب شوق الكثيري للمحاماة والاستشارات القانونية</div>'+
-    '<script>window.onload=()=>window.print();<\/script></body></html>');
+    ''+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>');
   w.document.close();
 }
 
@@ -18109,7 +18213,7 @@ function saveSuggestion() {
     };
     S.suggestions.unshift(sugg);
     // Notify admin
-    addNotif('💡 اقتراح جديد', `${anon?'موظف مجهول':myName}: "${title}"`, 'info');
+    addNotif('💡 اقتراح جديد', `${anon?'موظف مجهول':myName}: "${title}"`, 'info',null,'','suggestion','admin');
     toast('✅ تم إرسال اقتراحك بنجاح','success');
     logAct('اقتراح جديد', (anon?'مجهول':myName)+' | '+title);
   }
@@ -18425,7 +18529,7 @@ function submitTransferRequest() {
   };
   S.transferRequests.push(req);
   // Notify admin
-  addNotif('📨 طلب تحويل مهمة', `${CU.fullName} يطلب تحويل مهمة "${t.title}" إلى ${toEmp.name}\nالسبب: ${reason}`, 'info');
+  addNotif('📨 طلب تحويل مهمة', `${CU.fullName} يطلب تحويل مهمة "${t.title}" إلى ${toEmp.name}\nالسبب: ${reason}`, 'info',null,'','task','admin');
   save(); closeM('transferReqModal');
   toast('✅ تم إرسال طلب التحويل للمدير', 'success');
   updBell();
@@ -19042,7 +19146,7 @@ function printSubInvoiceSingle(id) {
     '</tbody></table>':'')+
     '<div class="total-box">💰 إجمالي الاشتراك: '+(s.amount||0).toLocaleString()+' درهم إماراتي</div>'+
     '<div class="print-footer">مكتب شوق الكثيري للمحاماة والاستشارات القانونية</div>'+
-    '<script>window.onload=()=>window.print();<\/script></body></html>');
+    ''+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>');
   w.document.close();
 }
 
@@ -19072,7 +19176,7 @@ function _printSubInvoice(subs) {
     '<tbody>'+rows+'</tbody></table>'+
     '<div class="total-box">💰 الإجمالي: '+total.toLocaleString('ar')+' د.إ</div>'+
     '<div class="print-footer">مكتب شوق الكثيري للمحاماة</div>'+
-    '<script>window.onload=()=>window.print();<\/script></body></html>');
+    ''+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>');
   w.document.close();
 }
 
@@ -19480,7 +19584,7 @@ function _printCasesAsSessionsRoll(cases, label){
     <table>${theadHtml}<tbody>${allRows}</tbody></table>
     <div class="summary">📊 الإجمالي: <strong>${grandTotal}</strong> قضية &nbsp;|&nbsp; <strong>${dayCount}</strong> يوم جلسة</div>
     <div class="footer">${esc(officeName)} — الإمارات العربية المتحدة | طُبع بتاريخ ${printDate}</div>
-    <script>window.onload=function(){setTimeout(function(){window.print();},400);};<\/script>
+    '+'<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},400);}</scr'+'ipt>'+'
   </body></html>`;
 
   // محاولة فتح نافذة جديدة — مع fallback لـ iframe مدمج
@@ -19683,7 +19787,7 @@ function printClientCard(clientId) {
     myCases.map(cas=>'<tr><td>'+esc(cas.numOffice||cas.numCourt||'-')+'</td><td>'+esc(cas.courtName||'-')+'</td><td>'+esc(cas.caseType||'-')+'</td><td>'+esc(cas.status||'-')+'</td><td>'+(fmtDate(cas.nextSession)||'—')+'</td></tr>').join('')+
     '</tbody></table>':'')+
     '<div style="text-align:center;margin-top:24px;font-size:10px;color:#999;border-top:1px solid #ddd;padding-top:8px;">مكتب شوق الكثيري للمحاماة والاستشارات القانونية — الإمارات العربية المتحدة</div>'+
-    '<script>window.onload=()=>window.print();<\/script></body></html>');
+    ''+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>');
   w.document.close();
 }
 
@@ -19793,7 +19897,7 @@ function printClientStatement(clientId) {
     <span style="font-size:15px;font-weight:800;color:${remFin>0?'#ffa8a8':'#a8ffd0'};">⏳ متبقٍ: ${remFin.toLocaleString('ar')} د.إ</span>
   </div>
   <div style="text-align:center;margin-top:20px;font-size:10px;color:#999;border-top:1px solid #ddd;padding-top:8px;">كشف حساب صادر بتاريخ ${new Date().toLocaleDateString('ar-SA')} — مكتب شوق الكثيري للمحاماة والاستشارات القانونية</div>
-  <script>window.onload=()=>window.print();<\/script></body></html>`);
+  '+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>`);
   w.document.close();
 }
 
@@ -20006,7 +20110,7 @@ function printSessionsReport(period) {
   </table>
   <div class="summary-box">📊 إجمالي الجلسات: <strong>${grandTotal}</strong> جلسة في <strong>${dayCount}</strong> يوم</div>
   <div class="print-footer">مكتب شوق الكثيري للمحاماة — طُبع بتاريخ ${new Date().toLocaleDateString('ar-SA')}</div>
-  <script>window.onload=()=>window.print();<\/script></body></html>`);
+  '+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>`);
   w.document.close();
 }
 
@@ -20035,7 +20139,7 @@ function printClientsFiltered() {
     '<th>#</th><th>الاسم</th><th>رقم الهوية</th><th>الجوال</th><th>الجنسية</th><th>النوع</th><th>الوكالات</th><th>حالة الوكالات</th>'+
     '</tr></thead><tbody>'+rows+'</tbody></table>'+
     '<div style="text-align:center;margin-top:20px;font-size:10px;color:#999;border-top:1px solid #ddd;padding-top:8px;">مكتب شوق الكثيري للمحاماة — '+new Date().toLocaleDateString("ar-SA")+'</div>'+
-    '<script>window.onload=()=>window.print();<\/script></body></html>');
+    ''+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>');
   w.document.close();
 }
 
@@ -20257,7 +20361,7 @@ function printDailyRoll() {
     </tr></thead>
     <tbody>${allRows}</tbody>
   </table>
-  <script>window.onload=()=>window.print();<\/script></body></html>`);
+  '+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>`);
   w.document.close();
 }
 
@@ -20414,7 +20518,7 @@ function printRollByDateRange() {
   </div>
   <div class="range-title">📆 رول الجلسات من ${fromFmt} إلى ${toFmt} — إجمالي ${grandTotal} جلسة</div>
   ${allHtml}
-  <script>window.onload=()=>window.print();<\/script></body></html>`);
+  '+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>`);
   w.document.close();
 }
 
@@ -20499,7 +20603,7 @@ function printOfficeStats() {
       <table><thead><tr><th>المستشار</th><th>عدد القضايا</th></tr></thead><tbody>${lawyerRows}</tbody></table>
     </div>
   </div>
-  <script>window.onload=()=>window.print();<\/script></body></html>`);
+  '+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>`);
   w.document.close();
 }
 
@@ -22182,6 +22286,7 @@ function confirmOfficePrepayment() {
   const p=(S.empPrepayments||[]).find(x=>x.id===prepayId); if(!p) return;
   p.status='pending_emp_final_ack';
   p.officePaid={amount:paidAmount, method, notes, paidAt:today(), paidBy:CU.fullName};
+  _ledger('out','مصاريف موظفين',`شراء مسبق — ${p.empName}: ${p.purpose||''}`,paidAmount,today(),p.empName);
   save();
   addNotifToEmp(p.empId,'💸 المكتب أرسل لك مبلغ الفاتورة',
     `المكتب أرسل لك ${paidAmount.toLocaleString()} د.إ عبر ${method} مقابل: ${p.purpose}. يُرجى تأكيد الاستلام.${notes?' — '+notes:''}`,'success','');
@@ -22438,6 +22543,12 @@ function saveClearance() {
   });
 
   save();
+  // تسجيل حركة المال في دفتر المصاريف
+  if(net > 0.01) {
+    _ledger('out','تسويات نهائية',`تصفية حساب ${emp?.name||''} — المكتب يدفع الرصيد`,net,today(),emp?.name||'');
+  } else if(net < -0.01) {
+    _ledger('in','تسويات نهائية',`تصفية حساب ${emp?.name||''} — الموظف يسدد الرصيد`,Math.abs(net),today(),emp?.name||'');
+  }
   addNotifToEmp(empId,'🏁 تمت تصفية حسابك وحذف جميع السجلات',
     `تمت تصفية حسابك المالي مع المكتب وحُذفت جميع السجلات المالية بينكما.\nالرصيد السابق: ${Math.abs(net).toLocaleString()} د.إ ${net>0?'لصالحك':'عليك'} → صفر الآن.${notes?' — '+notes:''}`,'success','');
   toast(`✅ تمت تصفية حساب ${emp?.name||''} وحُذف جميع السجلات — الحساب أصبح صفراً`,'success');
@@ -22602,6 +22713,14 @@ function empConfirmClearance(id) {
   if(!S.empClearanceLogs) S.empClearanceLogs=[];
   S.empClearanceLogs.push({id:uid(),empId,empName:emp?.name||r.empName,debit:r.debitAtApproval||debit,credit:r.creditAtApproval||credit,net:r.netAtApproval||net,notes:r.financeNote||'',clearedAt:today_,clearedBy:r.approvedBy||'',empConfirmedAt:today_,empConfirmedBy:CU.fullName,createdAt:new Date().toISOString(),requestId:id});
   r.status='approved'; r.empConfirmedAt=today_; r.empConfirmedBy=CU.fullName;
+  // تسجيل حركة المال في دفتر المصاريف
+  if(net > 0.01) {
+    // رصيد لصالح الموظف → المكتب يدفع له
+    _ledger('out','تسويات نهائية',`تصفية حساب ${emp?.name||r.empName} — المكتب يدفع الرصيد`,net,today_,emp?.name||r.empName);
+  } else if(net < -0.01) {
+    // رصيد على الموظف → الموظف يدفع للمكتب
+    _ledger('in','تسويات نهائية',`تصفية حساب ${emp?.name||r.empName} — الموظف يسدد الرصيد`,Math.abs(net),today_,emp?.name||r.empName);
+  }
   save();
   toast('✅ تمت التصفية النهائية — الحساب أصبح صفراً','success');
   addNotif('🏁 أكّد الموظف التصفية',`${emp?.name||r.empName} أكّد تصفية حسابه. تم حذف جميع السجلات.`,'success',null,r.id,'finance');
@@ -22970,6 +23089,7 @@ function saveCustody() {
   } else {
     const newC={id:uid(),empId,empName:emp?.name||'',amount,date,purpose,notes,status:'pending_emp',invoices:[],createdAt:new Date().toISOString(),createdBy:CU.fullName};
     S.empCustodies.push(newC);
+    _ledger('out','عهد موظفين',`عهدة — ${emp?.name||''}: ${purpose}`,amount,date,emp?.name||'');
     addNotifToEmp(empId,'🗂️ عهدة جديدة',`تم إرسال عهدة بمبلغ ${amount.toLocaleString()} د.إ — الغرض: ${purpose}. يرجى المراجعة والموافقة.`,'warning','');
     toast('📤 تم إرسال العهدة للموظف','success');
     logAct('إضافة عهدة',`${emp?.name||''} — ${amount} د.إ`);
@@ -23044,6 +23164,8 @@ function approveInvoice(custodyId, invoiceId) {
   inv.status='approved'; inv.approvedAt=today(); inv.approvedBy=CU.fullName;
   const settled=(c.invoices||[]).filter(i=>i.status==='approved').reduce((a,i)=>a+i.amount,0);
   c.status = settled>=c.amount?'settled':'partial';
+  // الفاتورة المعتمدة = المال صُرف فعلاً على مصروف حقيقي (تحويل من عهدة → مصروف)
+  _ledger('out','مصاريف موظفين',`فاتورة عهدة — ${c.empName}: ${c.purpose||''} | ${inv.desc||inv.invoiceNum||''}`,inv.amount,today(),c.empName);
   save(); toast('✅ تمت الموافقة — تم خصم المبلغ وتسوية العهدة','success');
   addNotifToEmp(c.empId,'✅ تمت الموافقة على سند التسوية',`تمت الموافقة على سند بمبلغ ${inv.amount.toLocaleString()} د.إ وتم خصمه من عهدتك "${c.purpose}". الرصيد المتبقي: ${Math.max(0,c.amount-settled).toLocaleString()} د.إ`,'success','');
   logAct('موافقة على سند تسوية',`${c.empName} — ${inv.amount} د.إ`);
@@ -23627,6 +23749,7 @@ function empConfirmExpenseReceipt(id) {
     date:today(), status:'active', approvedBy:r.approvedBy||'',
     reqId:r.id, invoices:[], createdAt:new Date().toISOString()
   });
+  _ledger('out','مصاريف موظفين',`مصاريف ${r.empName} — ${r.type}: ${r.desc||''}`,r.amount,today(),r.empName);
   save();
   toast('✅ تم تأكيد الاستلام — تم تسجيل المبلغ كعهدة عليك. يرجى رفع الفاتورة.','success');
   addNotif('✅ تأكيد استلام مصاريف', `${r.empName} أكّد استلام ${r.amount.toLocaleString()} د.إ`, 'success', null, r.id, 'finance');
@@ -24036,6 +24159,7 @@ function saveLoan() {
       createdAt: new Date().toISOString(), createdBy: CU.fullName
     };
     S.empLoans.push(newL);
+    _ledger('out','سلف موظفين',`سلفة — ${emp?.name||''} | ${reason||''}`,amount,date,emp?.name||'');
     // ── إشعار داخلي تفصيلي للموظف ──
     const loanMonths = Math.ceil(amount / installmentAmount);
     addNotifToEmp(empId, '💸 تم تسجيل سلفة جديدة باسمك',
@@ -24167,6 +24291,8 @@ function markInstPaid(loanId, instId) {
   inst.paid=true; inst.paidAt=today();
   const isFullySettled = calcLoanRemaining(l)===0;
   if(isFullySettled) l.status='settled';
+  // قسط السلفة يُعدّ استرداداً للمكتب
+  _ledger('in','استرداد سلف',`سداد قسط سلفة — ${l.empName||''} | شهر ${inst.month}`,inst.amount,today(),l.empName||'');
   save(); toast('✅ تم تسجيل الدفعة','success');
   const remAfter = calcLoanRemaining(l);
   if(isFullySettled){
@@ -24223,6 +24349,10 @@ function settleLoanFull(id) {
   const l=(S.empLoans||[]).find(x=>x.id===id); if(!l) return;
   (l.installments||[]).forEach(i=>{if(!i.paid){i.paid=true;i.paidAt=today();}});
   l.status='settled'; l.settledAt=today();
+  const remaining = calcLoanRemaining(l);
+  // باقي السلفة غير المخصومة يُعدّ استرداداً للمكتب
+  const totalPaidNow = (l.installments||[]).filter(i=>i.paidAt===today()).reduce((s,i)=>s+i.amount,0);
+  if(totalPaidNow>0) _ledger('in','استرداد سلف',`تسوية كاملة لسلفة — ${l.empName||''}`,totalPaidNow,today(),l.empName||'');
   save(); toast('✅ تمت تسوية السلفة بالكامل','success');
   addNotifToEmp(l.empId,'✅ تمت تسوية سلفتك بالكامل','تهانينا! تمت تسوية سلفتك بالكامل.','success','');
   closeM('loanManageModal'); renderLoansPage();
@@ -24349,7 +24479,7 @@ function printEmpStatement() {
   <style>${getPrintWatermarkStyle()}body{font-family:Arial,sans-serif;padding:20px;}</style>
   </head><body>${getPrintHeader('كشف حساب موظف: '+(emp?.name||''))}${body}
   <div class="print-footer">مكتب شوق الكثيري للمحاماة — ${new Date().toLocaleDateString('ar-SA')}</div>
-  <script>window.onload=()=>window.print();<\/script></body></html>`);
+  '+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>`);
   w.document.close();
 }
 
@@ -24570,7 +24700,7 @@ function printEmpFinCard(empId) {
     <tr style="background:#f5f8ff;"><td><b>✅ صافي المستحق (${month})</b></td><td style="font-size:15px;font-weight:900;color:#1a6bb5;">${p.net.toLocaleString()} د.إ</td></tr>
     <tr><td><b>متبقي السلف</b></td><td style="color:${loanBal>0?'red':'green'};">${loanBal.toLocaleString()} د.إ</td></tr>
   </tbody></table>
-  <script>window.onload=()=>window.print();<\/script></body></html>`);
+  '+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>`);
   w.document.close();
 }
 
@@ -24604,7 +24734,7 @@ function printEvaluations() {
   w.document.write(`<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>تقييمات الأداء</title>
   <style>${getPrintWatermarkStyle()}body{font-family:Arial,sans-serif;padding:20px;}table{width:100%;border-collapse:collapse;font-size:11.5px;}th,td{border:1px solid #ccc;padding:6px;}th{background:#0f4c81;color:#fff;}</style>
   </head><body>${getPrintHeader('تقييمات أداء الموظفين')}${body}
-  <script>window.onload=()=>window.print();<\/script></body></html>`);
+  '+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>`);
   w.document.close();
 }
 
@@ -25015,11 +25145,12 @@ function confirmReimburse() {
   const sentAmount = parseFloat(document.getElementById('ropSentAmount').value);
   const p = (S.empOwnPayments || []).find(x => x.id === payId); if (!p) return;
   if (isNaN(sentAmount) || sentAmount <= 0) { toast('⚠️ أدخل المبلغ المُرسل فعلياً', 'warning'); return; }
-  p.status = 'reimbursed'; // awaiting employee confirmation
+  p.status = 'reimbursed';
   p.reimbursedAt = new Date().toISOString();
   p.reimbursedBy = CU.fullName;
   p.reimbursedNote = note;
-  p.sentAmount = sentAmount; // المبلغ الفعلي الذي أرسلته المالية
+  p.sentAmount = sentAmount;
+  _ledger('out','استرداد دفعات موظفين',`تسديد للموظف ${p.empName} — ${p.type}: ${p.desc||''}`,sentAmount,today(),p.empName);
   save();
   const diffMsg = sentAmount !== p.amount ? ` (المُرسَل: ${sentAmount.toLocaleString()} د.إ من أصل ${p.amount.toLocaleString()} د.إ)` : '';
   toast(`📤 تم الإرسال للموظف — بانتظار تأكيد الاستلام من ${p.empName}`, 'success');
@@ -25401,7 +25532,8 @@ function financeApproveSettlementReq(id) {
   r.approvedAt = today_;
   r.approvedBy = CU.fullName;
   r.financeNote = note;
-
+  // ── تسجيل في دفتر المصاريف (المكتب يدفع للموظف) ──
+  _ledger('out','تسويات موظفين',`تسوية ${r.empName} — ${r.refLabel||r.desc||''}`,r.amount,today_,r.empName);
   save();
   toast(`✅ تمت تسوية ${r.amount.toLocaleString()} د.إ للموظف ${r.empName}`, 'success');
   addNotifToEmp(r.empId, '✅ تمت تسويتك المالية',
@@ -25632,6 +25764,7 @@ function empConfirmPayment() {
   const note = document.getElementById('empAckNote').value.trim();
   const r = (S.financePaymentRequests || []).find(x => x.id === _empAckPayId); if (!r) return;
   r.status = 'confirmed'; r.confirmedAt = today(); r.empNote = note;
+  _ledger('out','دفعات للموظفين',`دفع للموظف ${r.empName} — ${r.type}: ${r.desc||''}`,r.amount,today(),r.empName);
   save();
   toast('✅ تم تأكيد استلام الدفع', 'success');
   addNotifToEmp('_admin_', '✅ الموظف أكّد استلام الدفع', `${r.empName} أكّد استلام ${r.amount.toLocaleString()} د.إ — ${r.type}${note ? ' — ملاحظة: ' + note : ''}`, 'success', '');
@@ -26115,7 +26248,7 @@ function checkSessionNotificationsEnhanced() {
         addNotifToEmp(empId, `🔔 جلسة ${labels[daysAhead]}`, `قضية ${c.numOffice||c.numCourt} — ${c.courtName||''} — ${fmtDate(c.nextSession)}`, 'warning', c.id);
       });
       // للأدمن
-      if (daysAhead === 1) addNotif('🔔 جلسة غداً', `قضية ${c.numOffice||c.numCourt} — ${c.courtName||''} — ${fmtDate(c.nextSession)}`, 'warning');
+      if (daysAhead === 1) addNotif('🔔 جلسة غداً', `قضية ${c.numOffice||c.numCourt} — ${c.courtName||''} — ${fmtDate(c.nextSession)}`, 'warning',null,c.id,'case','admin');
       localStorage.setItem(key, '1');
     });
   });
@@ -26127,7 +26260,7 @@ function checkSessionNotificationsEnhanced() {
     (c.assignees||[]).forEach(empId => {
       addNotifToEmp(empId, '🔴 جلسة اليوم!', `قضية ${c.numOffice||c.numCourt} — ${c.courtName||''} — ${fmtDate(c.nextSession)}`, 'error', c.id);
     });
-    addNotif('🔴 جلسة اليوم!', `قضية ${c.numOffice||c.numCourt} — ${c.courtName||''} — ${fmtDate(c.nextSession)}`, 'error');
+    addNotif('🔴 جلسة اليوم!', `قضية ${c.numOffice||c.numCourt} — ${c.courtName||''} — ${fmtDate(c.nextSession)}`, 'error',null,c.id,'case','admin');
     localStorage.setItem(key, '1');
   });
 }
@@ -26232,7 +26365,7 @@ function printTodayAtt() {
   const w=window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>سجل اليوم</title>
   <style>${getPrintWatermarkStyle()}body{font-family:Arial,sans-serif;padding:20px;}table{width:100%;border-collapse:collapse;font-size:12px;}th,td{border:1px solid #ccc;padding:6px;}th{background:#0f4c81;color:#fff;}</style>
-  </head><body>${getPrintHeader('سجل حضور يوم '+fmtDate(td))}${body}<script>window.onload=()=>window.print();<\/script></body></html>`);
+  </head><body>${getPrintHeader('سجل حضور يوم '+fmtDate(td))}${body}'+'<scr'+'ipt>window.onload=()=>window.print();</scr'+'ipt>'+'</body></html>`);
   w.document.close();
 }
 
