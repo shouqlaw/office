@@ -1061,7 +1061,7 @@ function getPrintHeader(subtitle) {
 <div class="page" id="page-attendance">
 
   <!-- ══════════════════════════════════════════════
-       SEGMENTED CONTROL — 3 أقسام رئيسية
+       SEGMENTED CONTROL — أقسام تبويب الحضور
   ══════════════════════════════════════════════ -->
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:18px;">
     <!-- Segmented tabs -->
@@ -1075,6 +1075,9 @@ function getPrintHeader(subtitle) {
       <button id="attSeg-docs" class="att-seg-btn" onclick="switchAttSeg('docs')">
         <span>📁</span> <span class="att-seg-lbl">وثائقي</span>
         <span id="myDocsCount" style="display:none;background:var(--primary);color:#fff;border-radius:10px;font-size:10px;padding:1px 6px;margin-right:2px;"></span>
+      </button>
+      <button id="attSeg-mypass" class="att-seg-btn" onclick="switchAttSeg('mypass')">
+        <span>🔑</span> <span class="att-seg-lbl">كلمة المرور</span>
       </button>
     </div>
     <!-- تنبيه جلسات اليوم/الغد للموظف -->
@@ -1212,6 +1215,18 @@ function getPrintHeader(subtitle) {
         </div>
         <div id="adminEmpDocsGrid"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- ══ SEG 4: كلمة المرور ══ -->
+  <div id="attSeg-mypass-content" style="display:none;">
+    <div class="card" style="max-width:420px;margin:0 auto;">
+      <div class="card-title"><span>🔑 تغيير كلمة المرور الخاصة بي</span></div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">أدخل كلمة المرور الحالية ثم كلمة المرور الجديدة مرتين للتأكيد. لن يطّلع أي موظف آخر على كلمة مرورك.</p>
+      <div class="form-group"><label>كلمة المرور الحالية</label><input class="form-control" type="password" id="empCurPass" autocomplete="current-password"></div>
+      <div class="form-group"><label>كلمة المرور الجديدة</label><input class="form-control" type="password" id="empNewPass" autocomplete="new-password"></div>
+      <div class="form-group"><label>تأكيد كلمة المرور الجديدة</label><input class="form-control" type="password" id="empConPass" autocomplete="new-password" onkeypress="if(event.key==='Enter')empChangePass()"></div>
+      <button class="btn bp btn-full" onclick="empChangePass()">🔑 تغيير كلمة المرور</button>
     </div>
   </div>
 
@@ -6969,7 +6984,7 @@ function applyNavPerms() {
   ['btnAddFinRec','btnAddFinRec2'].forEach(id=>{ const b=document.getElementById(id); if(b) b.style.display=canAddFin?'':'none'; });
   const bExp=document.getElementById('btnExportFin'); if(bExp) bExp.style.display=canExportFin?'':'none';
   // Salaries tab: admin OR ep_viewSalaries
-  const finSalBtn=document.querySelector('.itab[onclick*="fin-salaries"]');
+  const finSalBtn=document.querySelector('[onclick*="fin-salaries"]');
   if(finSalBtn) finSalBtn.style.display=(isAdmin||hasPerm('ep_viewSalaries'))?'':'none';
 }
 
@@ -7604,6 +7619,8 @@ function renderAttPage() {
   const leavBtn=document.getElementById('reqLeaveBtn');
   const excuseBtn=document.getElementById('reqExcuseBtn');
   const isEmp = !!(CU.empId); // موظف أو مدير مرتبط بموظف
+  const mypassBtn = document.getElementById('attSeg-mypass');
+  if(mypassBtn) mypassBtn.style.display = (CU.type==='admin') ? 'none' : '';
   if(CU.type==='admin'){
     if(el) el.textContent='وضع المدير — أدخل كود أي موظف';
     if(codeSection) codeSection.style.display='';
@@ -8344,7 +8361,7 @@ function openMonthlyAttDetail(yStr, mStr, filter) {
 //  ATTENDANCE PAGE — SEGMENTED CONTROL
 // ══════════════════════════════════════════════════════
 function switchAttSeg(seg) {
-  ['presence','finance','docs'].forEach(s=>{
+  ['presence','finance','docs','mypass'].forEach(s=>{
     const btn = document.getElementById('attSeg-'+s);
     const content = document.getElementById('attSeg-'+s+'-content');
     if(btn) btn.classList.toggle('active', s===seg);
@@ -8352,6 +8369,25 @@ function switchAttSeg(seg) {
   });
   if(seg==='docs'){ renderMyDocs(); checkDocExpiryAlerts(); }
   if(seg==='finance') { renderMyFinanceBalanceBox(CU.empId); renderMyCustodySection(); }
+  if(seg==='mypass') { ['empCurPass','empNewPass','empConPass'].forEach(f=>{ const el=document.getElementById(f); if(el) el.value=''; }); }
+}
+
+function empChangePass() {
+  if(!CU || CU.type==='admin'){ toast('⚠️ الأدمن يغيّر كلمة المرور من تبويب الإدارة','warning'); return; }
+  const cur=document.getElementById('empCurPass').value;
+  const nw=document.getElementById('empNewPass').value;
+  const cn=document.getElementById('empConPass').value;
+  const emp = S.employees.find(e=>e.id===CU.empId);
+  if(!emp){ toast('❌ تعذّر العثور على بيانات الموظف','error'); return; }
+  if(!cur){ toast('⚠️ يرجى إدخال كلمة المرور الحالية','warning'); return; }
+  if(cur!==emp.password){ toast('❌ كلمة المرور الحالية غير صحيحة','error'); return; }
+  if(!nw||nw.length<4){ toast('⚠️ كلمة المرور الجديدة يجب أن تكون 4 أحرف على الأقل','warning'); return; }
+  if(nw!==cn){ toast('❌ كلمة المرور الجديدة وتأكيدها غير متطابقتين','error'); return; }
+  if(nw===cur){ toast('⚠️ كلمة المرور الجديدة مطابقة للحالية','warning'); return; }
+  emp.password=nw; save();
+  toast('✅ تم تغيير كلمة المرور بنجاح','success');
+  logAct('تغيير كلمة المرور',CU.username);
+  ['empCurPass','empNewPass','empConPass'].forEach(f=>document.getElementById(f).value='');
 }
 
 // ══════════════════════════════════════════════════════
@@ -9545,17 +9581,18 @@ function renderEmps() {
   if(!el)return;
   _renderEmpKpi(emps);
   if(!emps.length){ el.innerHTML='<div style="color:var(--text-muted);text-align:center;padding:30px;font-size:14px;">لا يوجد موظفون مطابقون</div>'; return; }
-  el.innerHTML=`<div class="tbl-wrap"><table><thead><tr><th>#</th><th>الاسم</th><th>الكود</th><th>الجوال</th><th>القسم</th><th>التعيين</th><th>الراتب</th><th>الإقامة</th><th>الوثائق</th><th>الحالة</th><th>الدوام</th><th>إجراءات</th></tr></thead><tbody>
+  const _isAdmView = CU?.type==='admin';
+  el.innerHTML=`<div class="tbl-wrap"><table><thead><tr><th>#</th><th>الاسم</th><th>الكود</th>${_isAdmView?'<th>الجوال</th>':''}<th>القسم</th><th>التعيين</th>${_isAdmView?'<th>الراتب</th>':''}<th>الإقامة</th><th>الوثائق</th><th>الحالة</th><th>الدوام</th><th>إجراءات</th></tr></thead><tbody>
     ${emps.map((e,i)=>{ const rd=daysTo(e.residencyExpiry); const docs=e.documents||[]; const expDocs=docs.filter(d=>d.expiry&&daysTo(d.expiry)!==null&&daysTo(d.expiry)<30); return `<tr>
       <td>${i+1}</td>
-      <td style="font-weight:700;">${esc(e.name)}<br><code style="font-size:10px;color:var(--text-muted);">${esc(e.username)||''}</code></td>
+      <td style="font-weight:700;">${esc(e.name)}<br><code style="font-size:10px;color:var(--text-muted);">${_isAdmView?(esc(e.username)||''):''}</code></td>
       <td><code style="background:var(--bg);padding:2px 8px;border-radius:5px;font-size:12px;">${esc(e.code)}</code></td>
-      <td>${e.phone?`<a href="tel:${esc(e.phone)}" style="color:var(--primary);text-decoration:none;">${esc(e.phone)}</a>`:'-'}</td>
+      ${_isAdmView?`<td>${e.phone?`<a href="tel:${esc(e.phone)}" style="color:var(--primary);text-decoration:none;">${esc(e.phone)}</a>`:'-'}</td>`:''}
       <td>${esc(e.department)}<br><span style="font-size:10.5px;color:var(--text-muted);">${esc(e.position||'')}</span></td>
       <td style="font-size:12px;">${e.hireDate?fmtDate(e.hireDate):'—'}</td>
-      <td style="font-size:12px;font-weight:700;color:var(--primary);">${e.salary?(+e.salary).toLocaleString()+' د.إ':'—'}</td>
-      <td><span class="badge ${expCls(rd)==='danger'?'b-off':expCls(rd)==='warning'?'b-warn':'b-ok'}">${e.residencyExpiry?fmtDate(e.residencyExpiry):'—'}</span></td>
-      <td>${docs.length?`<span class="badge ${expDocs.length?'b-warn':'b-info'}" title="${docs.map(d=>d.name+(d.expiry?' ('+fmtDate(d.expiry)+')':'')).join('، ')}">${docs.length} وثيقة${expDocs.length?` ⚠️${expDocs.length}`:''}</span>`:'<span style="color:var(--text-muted);font-size:11px;">—</span>'}</td>
+      ${_isAdmView?`<td style="font-size:12px;font-weight:700;color:var(--primary);">${e.salary?(+e.salary).toLocaleString()+' د.إ':'—'}</td>`:''}
+      <td><span class="badge ${expCls(rd)==='danger'?'b-off':expCls(rd)==='warning'?'b-warn':'b-ok'}">${_isAdmView?(e.residencyExpiry?fmtDate(e.residencyExpiry):'—'):(expCls(rd)==='danger'?'⚠️ منتهية':expCls(rd)==='warning'?'⚠️ قريباً':'✅')}</span></td>
+      <td>${docs.length?`<span class="badge ${expDocs.length?'b-warn':'b-info'}">${_isAdmView?docs.length+' وثيقة'+(expDocs.length?` ⚠️${expDocs.length}`:''):'وثائق'+(expDocs.length?' ⚠️':'✅')}</span>`:'<span style="color:var(--text-muted);font-size:11px;">—</span>'}</td>
       <td><span class="badge ${e.status==='نشط'?'b-ok':'b-off'}">${e.status}</span></td>
       <td style="font-size:11px;">${e.attendanceType==='field'?'<span style="background:#fff3e0;color:#e65c00;border-radius:6px;padding:2px 7px;font-weight:700;">🏛️ ميداني</span>':'<span style="background:#e3f0fb;color:#0f4c81;border-radius:6px;padding:2px 7px;">🖥️ مكتبي</span>'}</td>
       <td>
@@ -9878,9 +9915,25 @@ function renderClients() {
   const sortOrder=(document.getElementById('cliSortOrder')?.value||'newest');
   const typeFilter=document.getElementById('cliTypeFilter')?.value||'all';
   const agencyFilter=document.getElementById('cliAgencyFilter')?.value||'all';
+
+  // الموظف غير الأدمن يرى فقط عملاء قضاياه المُسندة إليه
+  const canSeeAll = isAdmin || hasPerm('ep_viewClients') || hasPerm('ep_addClients') || hasPerm('ep_editClients') || hasPerm('ep_deleteClients') || hasPerm('ep_addAgency');
+  let allowedClientIds = null;
+  if(!canSeeAll && CU.empId) {
+    // اجمع كل clientIds من القضايا المُسندة للموظف
+    const myCases = (S.cases||[]).filter(c=>(c.assignees||[]).includes(CU.empId||CU.id||''));
+    const ids = new Set();
+    myCases.forEach(c=>{
+      if(c.clientId) ids.add(c.clientId);
+      (c.clients||[]).forEach(cl=>{ if(cl.id) ids.add(cl.id); });
+    });
+    allowedClientIds = ids;
+  }
   let clis=S.clients.filter(c=>{
     const isArchived = c.status==='dormant'||c.status==='left'||c.archived;
     if(isArchived) return false;
+    // فلتر العزل: الموظف يرى عملاء قضاياه فقط
+    if(allowedClientIds !== null && !allowedClientIds.has(c.id)) return false;
     if(typeFilter!=='all'&&(c.type||'فرد')!==typeFilter) return false;
     // فلتر الوكالة
     const ags=c.agencies||[];
@@ -12050,22 +12103,22 @@ function renderFinDashboard() {
       </div>`:''}
     `) +
     _sec('📉','مصاريف المكتب — '+month,'var(--danger)',`
-      <div class="stat" style="border-right:4px solid var(--success);cursor:pointer;" onclick="showFinTab(null,'fin-salaries')">
+      ${(CU.type==='admin'||hasPerm('ep_viewSalaries'))?`<div class="stat" style="border-right:4px solid var(--success);cursor:pointer;" onclick="showFinTab(null,'fin-salaries')">
         <div class="stat-ico" style="background:linear-gradient(135deg,#e0f7ee,#c8f0e0);">👥</div>
         <div><div class="stat-num">${totalNetSalaries.toLocaleString()} د.إ</div><div class="stat-lbl">صافي الرواتب ${_s(disbursedCount+'/'+emps.length+' مصروف')}</div></div>
-      </div>
+      </div>`:''}
       <div class="stat" style="border-right:4px solid var(--danger);cursor:pointer;" onclick="showFinTab(null,'fin-office-expenses')">
         <div class="stat-ico" style="background:linear-gradient(135deg,#fde8e8,#f5c8c8);">🏢</div>
         <div><div class="stat-num">${monthOE.toLocaleString()} د.إ</div><div class="stat-lbl">مصاريف التشغيل</div></div>
       </div>
-      <div class="stat" style="border-right:4px solid ${activeLoansBal>0?'var(--danger)':'var(--success)'};cursor:pointer;" onclick="showFinTab(null,'fin-loans')">
+      ${(CU.type==='admin'||hasPerm('ep_viewSalaries'))?`<div class="stat" style="border-right:4px solid ${activeLoansBal>0?'var(--danger)':'var(--success)'};cursor:pointer;" onclick="showFinTab(null,'fin-loans')">
         <div class="stat-ico" style="background:linear-gradient(135deg,${activeLoansBal>0?'#fde8e8,#f5c8c8':'#e0f7ee,#c8f0e0'});">💸</div>
         <div><div class="stat-num" style="color:${activeLoansBal>0?'var(--danger)':'var(--success)'};">${activeLoansBal.toLocaleString()} د.إ</div><div class="stat-lbl">رصيد السلف النشطة</div></div>
       </div>
       <div class="stat" style="border-right:4px solid ${openCustodyBal>0?'var(--warning)':'var(--success)'};cursor:pointer;" onclick="showFinTab(null,'fin-custody')">
         <div class="stat-ico" style="background:linear-gradient(135deg,${openCustodyBal>0?'#fff8e3,#fdebc8':'#e0f7ee,#c8f0e0'});">🗂️</div>
         <div><div class="stat-num" style="color:${openCustodyBal>0?'var(--warning)':'var(--success)'};">${openCustodyBal.toLocaleString()} د.إ</div><div class="stat-lbl">عهد مفتوحة${pendingInvoices>0?' '+_s('| '+pendingInvoices+' معلقة'):''}</div></div>
-      </div>
+      </div>`:''}
     `) +
     _sec('📊','الملخص المالي — '+month,'#7b2d8b',`
       <div class="stat" style="border-right:4px solid ${cfData.netBeforeOwner>=0?'var(--success)':'var(--danger)'};">
@@ -14283,6 +14336,11 @@ let salPage = 1;
 const SAL_PER_PAGE = 10;
 
 function renderSalaries() {
+  if(CU.type!=='admin' && !hasPerm('ep_viewSalaries')){ 
+    const el=document.getElementById('salaryTable'); 
+    if(el) el.innerHTML='<div style="color:var(--danger);text-align:center;padding:30px;font-size:14px;">⛔ ليس لديك صلاحية عرض الرواتب</div>'; 
+    return; 
+  }
   const month=document.getElementById('salMonth')?.value||today().slice(0,7);
   const el=document.getElementById('salaryTable'); if(!el) return;
 
