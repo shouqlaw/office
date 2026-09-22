@@ -27643,3 +27643,70 @@ document.addEventListener('focusout', e => {
   }
 });
 </script>
+
+<!-- ═══ v50 BILINGUAL AR / EN ═══ -->
+<style>
+.lang-switch{display:inline-flex;align-items:center;gap:3px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:10px;padding:3px;direction:ltr}
+.lang-switch button{border:0;background:transparent;color:rgba(255,255,255,.72);font-family:'Cairo',sans-serif;font-size:11px;font-weight:800;padding:4px 8px;border-radius:7px;cursor:pointer}
+.lang-switch button.active{background:#fff;color:var(--primary);box-shadow:0 1px 5px rgba(0,0,0,.15)}
+.login-lang{position:absolute;top:18px;left:18px;z-index:10001}.login-lang .lang-switch{background:rgba(255,255,255,.16)}
+html[dir="ltr"] body{direction:ltr;font-family:'Cairo',sans-serif}
+html[dir="ltr"] th,html[dir="ltr"] td{text-align:left}
+html[dir="ltr"] .page-hdr-sub{padding-right:0;padding-left:48px}
+html[dir="ltr"] .gsearch-input{padding:5px 36px 5px 14px}
+html[dir="ltr"] .gsearch-ico{left:auto;right:10px}
+html[dir="ltr"] .notif-panel{direction:ltr}
+html[dir="ltr"] .alert-banner-close{margin-right:0;margin-left:auto}
+html[dir="ltr"] .lic-days{margin-right:0;margin-left:auto}
+html[dir="ltr"] .exp-days{margin-right:0;margin-left:auto;text-align:right}
+html[dir="ltr"] input[type="date"],html[dir="ltr"] input[type="month"],html[dir="ltr"] input[type="time"]{direction:ltr;text-align:left}
+@media(max-width:600px){.login-lang{top:10px;left:10px}.lang-switch button{padding:3px 6px;font-size:10px}}
+</style>
+<script>
+(function(){
+'use strict';
+const D={
+'مكتب شوق الكثيري للمحاماة':'Shawq Al Kathiri Advocates & Legal Consultants',
+'نظام الإدارة المتكامل':'Integrated Legal Management System',
+'اسم المستخدم':'Username','كلمة المرور':'Password','تسجيل الدخول':'Sign In',
+'❌ اسم المستخدم أو كلمة المرور غير صحيحة':'❌ Incorrect username or password',
+'الرئيسية':'Home','الحضور':'Attendance','القضايا':'Cases','الجلسات':'Hearings','العملاء':'Clients','المهام':'Tasks',
+'المالية':'Finance','التقارير':'Reports','الموظفون':'Employees','الأرشيف':'Archive','الإدارة':'Administration',
+'إدارة القضايا':'Case Management','إدارة العملاء':'Client Management','تقويم الجلسات':'Hearing Calendar',
+'إدارة الموظفين':'Employee Management','وثائق الموظفين':'Employee Documents','التقارير والإحصائيات':'Reports & Analytics',
+'الأرشيف الشامل':'Comprehensive Archive','الاستعلام العام':'Global Search','الإشعارات':'Notifications',
+'بحث سريع...':'Quick search...','خروج':'Logout','مساعدة وأسئلة شائعة':'Help & FAQ',
+'إضافة':'Add','إضافة جديد':'Add New','حفظ':'Save','إلغاء':'Cancel','تعديل':'Edit','حذف':'Delete','إغلاق':'Close',
+'طباعة':'Print','تصدير':'Export','استيراد':'Import','بحث':'Search','تحديث':'Refresh','عرض':'View','تفاصيل':'Details',
+'الاسم':'Name','رقم الهاتف':'Phone Number','البريد الإلكتروني':'Email','العنوان':'Address','ملاحظات':'Notes',
+'التاريخ':'Date','الوقت':'Time','الحالة':'Status','النوع':'Type','المبلغ':'Amount','الإجمالي':'Total','الوصف':'Description',
+'رقم القضية':'Case Number','اسم العميل':'Client Name','المحكمة':'Court','الجلسة القادمة':'Next Hearing','المحامي':'Lawyer',
+'جارية':'Active','محكومة':'Judgment Issued','منتهية':'Closed','جديد':'New','قيد التنفيذ':'In Progress','مكتملة':'Completed',
+'اليوم':'Today','غداً':'Tomorrow','هذا الأسبوع':'This Week','هذا الشهر':'This Month','الشهر':'Month','الأسبوع':'Week','القائمة':'List',
+'الحضور والانصراف':'Attendance & Check-out','تسجيل الحضور':'Check In','تسجيل الانصراف':'Check Out',
+'لوحة التحكم':'Dashboard','الإعدادات':'Settings','الصلاحيات':'Permissions','المستخدمون':'Users','النسخ الاحتياطي':'Backup',
+'الرسائل':'Messages','الاقتراحات':'Suggestions','الوثائق':'Documents','الرواتب':'Payroll','الإجازات':'Leaves',
+'الفواتير':'Invoices','المصروفات':'Expenses','الإيرادات':'Revenue','الدفعات':'Payments','العقود':'Contracts','الوكالات':'Powers of Attorney',
+'لا توجد بيانات':'No data available','لا توجد نتائج':'No results','اختر':'Select','الكل':'All','نشط':'Active','غير نشط':'Inactive',
+'تم الحفظ بنجاح':'Saved successfully','تأكيد':'Confirm','نعم':'Yes','لا':'No','رجوع':'Back','التالي':'Next','السابق':'Previous'
+};
+const R=Object.fromEntries(Object.entries(D).map(([a,e])=>[e,a]));
+let lang=localStorage.getItem('shawq_lang')||'ar';
+let busy=false;
+function trExact(s,to){const lead=s.match(/^\s*/)[0],tail=s.match(/\s*$/)[0],core=s.trim(); if(!core)return s; const map=to==='en'?D:R; return map[core]?lead+map[core]+tail:s;}
+function translateNode(n,to){if(n.nodeType===3){const p=n.parentElement;if(!p||['SCRIPT','STYLE','TEXTAREA'].includes(p.tagName))return; n.nodeValue=trExact(n.nodeValue,to);return;} if(n.nodeType!==1)return;
+ ['placeholder','title','aria-label'].forEach(a=>{if(n.hasAttribute&&n.hasAttribute(a)){const v=n.getAttribute(a);n.setAttribute(a,trExact(v,to));}});
+ n.childNodes.forEach(c=>translateNode(c,to));
+}
+function apply(to){if(busy)return;busy=true;lang=to;localStorage.setItem('shawq_lang',to);document.documentElement.lang=to==='ar'?'ar':'en';document.documentElement.dir=to==='ar'?'rtl':'ltr';translateNode(document.body,to);document.querySelectorAll('.lang-switch button').forEach(b=>b.classList.toggle('active',b.dataset.lang===to));busy=false;}
+function mkSwitch(cls=''){const w=document.createElement('div');w.className='lang-switch '+cls;w.innerHTML='<button type="button" data-lang="ar" onclick="window.setShawqLang(\'ar\')">العربية</button><button type="button" data-lang="en" onclick="window.setShawqLang(\'en\')">English</button>';return w;}
+window.setShawqLang=apply;
+function init(){
+ const login=document.getElementById('loginScreen');if(login&&!document.getElementById('loginLangWrap')){const x=document.createElement('div');x.id='loginLangWrap';x.className='login-lang';x.appendChild(mkSwitch());login.appendChild(x)}
+ const hr=document.querySelector('.hdr-right');if(hr&&!document.getElementById('headerLangSwitch')){const s=mkSwitch();s.id='headerLangSwitch';hr.insertBefore(s,hr.firstChild)}
+ apply(lang);
+ const ob=new MutationObserver(ms=>{if(busy||lang!=='en')return;busy=true;ms.forEach(m=>m.addedNodes.forEach(n=>translateNode(n,'en')));busy=false;});ob.observe(document.body,{childList:true,subtree:true});
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})();
+</script>
